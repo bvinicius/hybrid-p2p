@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "server": "npx ts-node index-server.ts",
+    "peer": "npx ts-node peer.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

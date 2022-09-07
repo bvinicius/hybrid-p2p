@@ -1,10 +1,10 @@
 import { IConnectable } from "../interface/IConnectable";
 class IndexServer {
-  private superPeers = {
-    sp1: { addr: "10.32.163.100", port: 4941, next: "sp2" },
-    sp2: { addr: "10.32.163.122", port: 4941, next: "sp3" },
-    sp3: { addr: "10.32.163.119", port: 16669, next: "sp4" },
-    sp4: { addr: "10.32.163.157", port: 10821, next: "sp1" },
+  readonly superPeers = {
+    sp1: { addr: "localhost", port: 2020, next: "sp2" },
+    sp2: { addr: "localhost", port: 2021, next: "sp3" },
+    sp3: { addr: "localhost", port: 2022, next: "sp4" },
+    sp4: { addr: "localhost", port: 2023, next: "sp1" },
   };
 
   constructor() {}
