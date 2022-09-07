@@ -1,9 +1,9 @@
 import { IConnectable } from "../interface/IConnectable";
 
 class Peer implements IConnectable {
-  superPeer: IConnectable;
+  superPeer?: IConnectable;
 
-  constructor(public addr, public port) {}
+  constructor(public addr: string, public port: number) {}
 }
 
 export default Peer;

@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "server": "npx ts-node index-server.ts",
+    "server": "npx ts-node index-server.ts 8080",
     "peer": "npx ts-node peer.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

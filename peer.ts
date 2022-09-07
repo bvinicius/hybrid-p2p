@@ -35,6 +35,7 @@ socket.on("message", (message, info) => {
 
     const messages = {
       [PeerMessage.superPeerData]: onSuperPeerReceived,
+      [PeerMessage.searchResource]: onSearchMessageReceived,
     };
 
     messages[data.message](message, info);
@@ -51,6 +52,16 @@ function onSuperPeerReceived(message: Buffer, info: RemoteInfo) {
     IConnectable
   >;
   peer.superPeer = data.payload!;
+}
+
+function onSearchMessageReceived(message: Buffer, info: RemoteInfo) {
+  console.log("SEARCH REQUEST RECEIVED", message, info);
+  const data = JSON.parse(message.toString()) as IPacketData<
+    PeerMessage,
+    { name: string }
+  >;
+
+  console.log("TO DO");
 }
 
 // TERMINAL
@@ -73,10 +84,10 @@ function question(question: string): Promise<string> {
   while (answer != "quit") {
     answer = await question("> ");
 
-    const splitAnswer = answer.split(" ");
-    const cmd = splitAnswer[0];
+    const [cmd, ...args] = answer.split(" ");
     const preCommands: Record<string, any> = {
       connect: () => requestSuperPeer(),
+      search: () => search(args.join(" ")),
     };
 
     if (cmd in preCommands) {
@@ -89,12 +100,31 @@ function question(question: string): Promise<string> {
 
 // HANDLING COMMANDS FROM TERMINAL
 function requestSuperPeer() {
-  console.log("gonna send request.");
+  console.log("gonna send request: requestSuperPeer");
 
+  const serverPort = 8080;
   const body: IPacketData<ServerMessage, undefined> = {
     message: ServerMessage.requestSuperPeer,
   };
 
   const serializedBody = JSON.stringify(body);
-  socket.send(serializedBody, 8080);
+  socket.send(serializedBody, serverPort);
+}
+
+function search(fileName: string) {
+  console.log("gonna send request: search");
+
+  const body: IPacketData<PeerMessage, { name: string }> = {
+    message: PeerMessage.searchResource,
+    payload: { name: fileName },
+  };
+
+  const serializedBody = JSON.stringify(body);
+  if (!peer.superPeer) {
+    console.log(
+      `[PEER] super per was not set! You need to run <connect> first.`
+    );
+    return;
+  }
+  socket.send(serializedBody, peer.superPeer!.port, peer.superPeer!.addr);
 }
