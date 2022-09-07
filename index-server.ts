@@ -21,7 +21,7 @@ socket.bind(port);
 
 socket.on("listening", () => {
   console.log("[INDEX] listening on port", port);
-  setupSuperPeers();
+  // setupSuperPeers();
 });
 
 socket.on("message", (message, info) => {

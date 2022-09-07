@@ -5,10 +5,14 @@ import { PeerMessage } from "./src/Peer/PeerMessage";
 import { ServerMessage } from "./src/IndexServer/ServerMessage";
 import { IConnectable } from "./src/interface/IConnectable";
 import * as readline from "readline";
-import Peer from "./src/Peer/Peer";
+import Peer, { IResourceData } from "./src/Peer/Peer";
+import SuperPeer from "./src/Peer/SuperPeer";
 
 const args = argv.slice(2);
 const [addr, portArg] = args;
+
+const isSuper = args.includes("super");
+if (isSuper) console.log("[PEER] Creating super peer.");
 
 // SOCKET CONFIG
 const port = Number(portArg);
@@ -17,7 +21,7 @@ if (!port || !addr) {
   exit(1);
 }
 
-const peer = new Peer(addr, port);
+const peer = isSuper ? new SuperPeer(addr, port) : new Peer(addr, port);
 
 const socket = createSocket("udp4");
 socket.bind(port, addr);
@@ -36,6 +40,7 @@ socket.on("message", (message, info) => {
     const messages = {
       [PeerMessage.superPeerData]: onSuperPeerReceived,
       [PeerMessage.searchResource]: onSearchMessageReceived,
+      [PeerMessage.registerFiles]: onRegisterFilesMessageReceived,
     };
 
     messages[data.message](message, info);
@@ -45,8 +50,27 @@ socket.on("message", (message, info) => {
 });
 
 // HANDLING MESSAGES RECEIVED
+function onRegisterFilesMessageReceived(message: Buffer, info: RemoteInfo) {
+  console.log("REGISTER FILES RECEIVED");
+
+  // add localFiles received to dht
+  const superPeer = peer as SuperPeer;
+  console.log(superPeer.dht);
+
+  const data = JSON.parse(message.toString()) as IPacketData<
+    PeerMessage,
+    Record<string, Partial<IResourceData>>
+  >;
+
+  Object.keys(data.payload!).forEach((hash) => {
+    Object.assign(superPeer.dht, {
+      [hash]: { ...data.payload![hash], addr: info.address, port: info.port },
+    });
+  });
+}
+
 function onSuperPeerReceived(message: Buffer, info: RemoteInfo) {
-  console.log("PEER RECEIVED", message, info);
+  console.log("PEER RECEIVED", info.port);
   const data = JSON.parse(message.toString()) as IPacketData<
     PeerMessage,
     IConnectable
@@ -55,7 +79,7 @@ function onSuperPeerReceived(message: Buffer, info: RemoteInfo) {
 }
 
 function onSearchMessageReceived(message: Buffer, info: RemoteInfo) {
-  console.log("SEARCH REQUEST RECEIVED", message, info);
+  console.log("SEARCH REQUEST RECEIVED");
   const data = JSON.parse(message.toString()) as IPacketData<
     PeerMessage,
     { name: string }
@@ -88,6 +112,7 @@ function question(question: string): Promise<string> {
     const preCommands: Record<string, any> = {
       connect: () => requestSuperPeer(),
       search: () => search(args.join(" ")),
+      register: () => registerFiles(args[0]),
     };
 
     if (cmd in preCommands) {
@@ -126,5 +151,26 @@ function search(fileName: string) {
     );
     return;
   }
+  socket.send(serializedBody, peer.superPeer!.port, peer.superPeer!.addr);
+}
+
+function registerFiles(folderPath: string) {
+  if (!peer.superPeer) {
+    console.log(
+      `[PEER] super per was not set! You need to run <connect> first.`
+    );
+    return;
+  }
+
+  peer.registerFiles(folderPath);
+  const data: IPacketData<
+    PeerMessage,
+    Record<string, Partial<IResourceData>>
+  > = {
+    message: PeerMessage.registerFiles,
+    payload: peer.localFiles,
+  };
+
+  const serializedBody = JSON.stringify(data);
   socket.send(serializedBody, peer.superPeer!.port, peer.superPeer!.addr);
 }
