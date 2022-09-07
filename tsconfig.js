@@ -1,7 +1,7 @@
 module.exports = {
   compilerOptions: {
     module: "esmodule",
-    noImplicitAny: true,
+    // noImplicitAny: true,
     removeComments: true,
     preserveConstEnums: true,
     sourceMap: true,

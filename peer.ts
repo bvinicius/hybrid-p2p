@@ -62,11 +62,7 @@ function onRegisterFilesMessageReceived(message: Buffer, info: RemoteInfo) {
     Record<string, Partial<IResourceData>>
   >;
 
-  Object.keys(data.payload!).forEach((hash) => {
-    Object.assign(superPeer.dht, {
-      [hash]: { ...data.payload![hash], addr: info.address, port: info.port },
-    });
-  });
+  superPeer.updateDHT(data.payload!, info);
 }
 
 function onSuperPeerReceived(message: Buffer, info: RemoteInfo) {
@@ -85,7 +81,8 @@ function onSearchMessageReceived(message: Buffer, info: RemoteInfo) {
     { name: string }
   >;
 
-  console.log("TO DO");
+  const result = (peer as SuperPeer).searchInDHT(data.payload!.name);
+  console.log(result);
 }
 
 // TERMINAL
