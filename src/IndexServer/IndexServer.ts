@@ -1,27 +1,24 @@
-import { Socket, createSocket } from "dgram";
 import { IConnectable } from "../interface/IConnectable";
-
-class IndexServer implements IConnectable {
-  superPeers = {
+class IndexServer {
+  private superPeers = {
     sp1: { addr: "10.32.163.100", port: 4941, next: "sp2" },
     sp2: { addr: "10.32.163.122", port: 4941, next: "sp3" },
     sp3: { addr: "10.32.163.119", port: 16669, next: "sp4" },
     sp4: { addr: "10.32.163.157", port: 10821, next: "sp1" },
   };
 
-  private server: Socket;
+  constructor() {}
 
-  constructor(public addr: string, public port: number) {
-    this.server = createSocket("udp4");
-    this.server.bind(this.port);
+  pickSuperPeer(): IConnectable {
+    const random =
+      Math.floor(Math.random() * 100) % Object.keys(this.superPeers).length;
 
-    this.server.on("message", (teste, info) => {
-      console.log("received: ", teste.toString(), "from ", info);
-      this.server.send("toma de volta entao", info.port);
-    });
+    const superPeer = Object.values(this.superPeers)[random];
+    return {
+      addr: superPeer.addr,
+      port: superPeer.port,
+    };
   }
-
-  connect() {}
 }
 
 export default IndexServer;
