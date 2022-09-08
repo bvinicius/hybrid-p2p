@@ -8,6 +8,8 @@ import * as readline from "readline";
 import Peer, { IResourceData } from "./src/Peer/Peer";
 import SuperPeer from "./src/Peer/SuperPeer";
 
+const KA_TIMEOUT = 1000;
+
 const args = argv.slice(2);
 const [addr, portArg] = args;
 
@@ -21,7 +23,9 @@ if (!port || !addr) {
   exit(1);
 }
 
-const peer = isSuper ? new SuperPeer(addr, port) : new Peer(addr, port);
+const peer: Peer | SuperPeer = isSuper
+  ? new SuperPeer(addr, port)
+  : new Peer(addr, port);
 
 const socket = createSocket("udp4");
 socket.bind(port, addr);
@@ -41,6 +45,7 @@ socket.on("message", (message, info) => {
       [PeerMessage.superPeerData]: onSuperPeerReceived,
       [PeerMessage.searchResource]: onSearchMessageReceived,
       [PeerMessage.registerFiles]: onRegisterFilesMessageReceived,
+      [PeerMessage.keepAlive]: onKeepAlive,
     };
 
     messages[data.message](message, info);
@@ -50,10 +55,15 @@ socket.on("message", (message, info) => {
 });
 
 // HANDLING MESSAGES RECEIVED
+
+function onKeepAlive(message: Buffer, info: RemoteInfo) {
+  const { address, port } = info;
+  (peer as SuperPeer).setPeerTimeout(address, port);
+}
+
 function onRegisterFilesMessageReceived(message: Buffer, info: RemoteInfo) {
   console.log("REGISTER FILES RECEIVED");
 
-  // add localFiles received to dht
   const superPeer = peer as SuperPeer;
   console.log(superPeer.dht);
 
@@ -72,6 +82,20 @@ function onSuperPeerReceived(message: Buffer, info: RemoteInfo) {
     IConnectable
   >;
   peer.superPeer = data.payload!;
+  scheduleKeepAlive();
+}
+
+function scheduleKeepAlive() {
+  setInterval(() => {
+    sendKeepAlive();
+  }, KA_TIMEOUT);
+}
+
+function sendKeepAlive() {
+  const data: IPacketData<PeerMessage, undefined> = {
+    message: PeerMessage.keepAlive,
+  };
+  socket.send(JSON.stringify(data), peer.superPeer!.port, peer.superPeer!.addr);
 }
 
 function onSearchMessageReceived(message: Buffer, info: RemoteInfo) {

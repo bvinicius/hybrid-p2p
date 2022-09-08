@@ -1,9 +1,18 @@
 import { RemoteInfo } from "dgram";
 import Peer, { IResourceData } from "./Peer";
 
+const KA_TIMEOUT = 5000;
+
+function ipPortKey(address: string, port: number) {
+  return `${address}:${port}`;
+}
+
 class SuperPeer extends Peer {
   dht: Record<string, IResourceData> = {};
-  subPeers = new Set<string>();
+
+  peerSet = new Set<string>();
+
+  peerTimeouts: Record<string, NodeJS.Timeout> = {};
 
   updateDHT(
     data: Record<string, Partial<IResourceData>>,
@@ -14,8 +23,8 @@ class SuperPeer extends Peer {
         [hash]: { ...data[hash], addr: peerInfo.address, port: peerInfo.port },
       });
     });
-    const ipPortKey = `${peerInfo.address}:${peerInfo.port}`;
-    this.subPeers.add(ipPortKey);
+
+    this.addPeer(peerInfo.address, peerInfo.port);
   }
 
   searchInDHT(name: string): Record<string, IResourceData> {
@@ -28,6 +37,45 @@ class SuperPeer extends Peer {
       filteredDHT[hash] = this.dht[hash];
     });
     return filteredDHT;
+  }
+
+  setPeerTimeout(address: string, port: number) {
+    const key = ipPortKey(address, port);
+
+    if (!this.peerSet.has(key)) {
+      return;
+    }
+
+    const peerTimeout = this.peerTimeouts[key];
+    if (peerTimeout) {
+      clearTimeout(peerTimeout);
+    }
+
+    this.peerTimeouts[key] = setTimeout(() => {
+      this.flushPeer(address, port);
+    }, KA_TIMEOUT);
+  }
+
+  addPeer(address: string, port: number) {
+    this.peerSet.add(ipPortKey(address, port));
+    this.setPeerTimeout(address, port);
+  }
+
+  private flushPeer(address: string, port: number) {
+    console.log(`Peer ${address}:${port} seems dead. Cleaning the house...`);
+
+    console.log("DHT Before: ", this.dht);
+    this.peerSet.delete(ipPortKey(address, port));
+    Object.keys(this.dht)
+      .filter(
+        (key) =>
+          ipPortKey(address, port) ===
+          ipPortKey(this.dht[key].addr, this.dht[key].port)
+      )
+      .forEach((hash) => {
+        delete this.dht[hash];
+      });
+    console.log("DHT After: ", this.dht);
   }
 }
 
