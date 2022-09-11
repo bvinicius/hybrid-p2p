@@ -1,5 +1,6 @@
 import { RemoteInfo } from "dgram";
-import Peer, { IResourceData } from "./Peer";
+import { IConnectable } from "../interface/IConnectable";
+import Peer, { IResourceData } from "../Peer/Peer";
 
 const KA_TIMEOUT = 5000;
 
@@ -13,6 +14,8 @@ class SuperPeer extends Peer {
   peerSet = new Set<string>();
 
   peerTimeouts: Record<string, NodeJS.Timeout> = {};
+
+  next?: IConnectable;
 
   updateDHT(
     data: Record<string, Partial<IResourceData>>,
@@ -52,6 +55,7 @@ class SuperPeer extends Peer {
     }
 
     this.peerTimeouts[key] = setTimeout(() => {
+      console.log(`Peer ${address}:${port} seems dead. Cleaning the house...`);
       this.flushPeer(address, port);
     }, KA_TIMEOUT);
   }
@@ -62,9 +66,6 @@ class SuperPeer extends Peer {
   }
 
   private flushPeer(address: string, port: number) {
-    console.log(`Peer ${address}:${port} seems dead. Cleaning the house...`);
-
-    console.log("DHT Before: ", this.dht);
     this.peerSet.delete(ipPortKey(address, port));
     Object.keys(this.dht)
       .filter(
@@ -75,7 +76,6 @@ class SuperPeer extends Peer {
       .forEach((hash) => {
         delete this.dht[hash];
       });
-    console.log("DHT After: ", this.dht);
   }
 }
 

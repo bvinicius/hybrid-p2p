@@ -6,6 +6,7 @@
   "scripts": {
     "server": "npx ts-node index-server.ts 8080",
     "peer": "npx ts-node peer.ts",
+    "superpeer": "npx ts-node superpeer.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

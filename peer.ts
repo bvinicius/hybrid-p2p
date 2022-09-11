@@ -6,15 +6,14 @@ import { ServerMessage } from "./src/IndexServer/ServerMessage";
 import { IConnectable } from "./src/interface/IConnectable";
 import * as readline from "readline";
 import Peer, { IResourceData } from "./src/Peer/Peer";
-import SuperPeer from "./src/Peer/SuperPeer";
+import { SuperPeerMessage } from "./src/SuperPeer/SuperPeerMessage";
 
 const KA_TIMEOUT = 1000;
+const SERVER_ADDR = "localhost";
+const SERVER_PORT = 8080;
 
 const args = argv.slice(2);
 const [addr, portArg] = args;
-
-const isSuper = args.includes("super");
-if (isSuper) console.log("[PEER] Creating super peer.");
 
 // SOCKET CONFIG
 const port = Number(portArg);
@@ -23,9 +22,7 @@ if (!port || !addr) {
   exit(1);
 }
 
-const peer: Peer | SuperPeer = isSuper
-  ? new SuperPeer(addr, port)
-  : new Peer(addr, port);
+const peer: Peer = new Peer(addr, port);
 
 const socket = createSocket("udp4");
 socket.bind(port, addr);
@@ -41,11 +38,11 @@ socket.on("message", (message, info) => {
       IConnectable
     >;
 
-    const messages = {
+    const messages: Record<
+      PeerMessage,
+      (message: Buffer, info: RemoteInfo) => void
+    > = {
       [PeerMessage.superPeerData]: onSuperPeerReceived,
-      [PeerMessage.searchResource]: onSearchMessageReceived,
-      [PeerMessage.registerFiles]: onRegisterFilesMessageReceived,
-      [PeerMessage.keepAlive]: onKeepAlive,
     };
 
     messages[data.message](message, info);
@@ -55,26 +52,6 @@ socket.on("message", (message, info) => {
 });
 
 // HANDLING MESSAGES RECEIVED
-
-function onKeepAlive(message: Buffer, info: RemoteInfo) {
-  const { address, port } = info;
-  (peer as SuperPeer).setPeerTimeout(address, port);
-}
-
-function onRegisterFilesMessageReceived(message: Buffer, info: RemoteInfo) {
-  console.log("REGISTER FILES RECEIVED");
-
-  const superPeer = peer as SuperPeer;
-  console.log(superPeer.dht);
-
-  const data = JSON.parse(message.toString()) as IPacketData<
-    PeerMessage,
-    Record<string, Partial<IResourceData>>
-  >;
-
-  superPeer.updateDHT(data.payload!, info);
-}
-
 function onSuperPeerReceived(message: Buffer, info: RemoteInfo) {
   console.log("PEER RECEIVED", info.port);
   const data = JSON.parse(message.toString()) as IPacketData<
@@ -85,37 +62,13 @@ function onSuperPeerReceived(message: Buffer, info: RemoteInfo) {
   scheduleKeepAlive();
 }
 
-function scheduleKeepAlive() {
-  setInterval(() => {
-    sendKeepAlive();
-  }, KA_TIMEOUT);
-}
-
-function sendKeepAlive() {
-  const data: IPacketData<PeerMessage, undefined> = {
-    message: PeerMessage.keepAlive,
-  };
-  socket.send(JSON.stringify(data), peer.superPeer!.port, peer.superPeer!.addr);
-}
-
-function onSearchMessageReceived(message: Buffer, info: RemoteInfo) {
-  console.log("SEARCH REQUEST RECEIVED");
-  const data = JSON.parse(message.toString()) as IPacketData<
-    PeerMessage,
-    { name: string }
-  >;
-
-  const result = (peer as SuperPeer).searchInDHT(data.payload!.name);
-  console.log(result);
-}
-
 // TERMINAL
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
 
-function question(question: string): Promise<string> {
+function question(): Promise<string> {
   return new Promise((resolve) => {
     return rl.question("> ", (answer) => {
       resolve(answer);
@@ -127,7 +80,7 @@ function question(question: string): Promise<string> {
   console.log("\n");
   let answer = "";
   while (answer != "quit") {
-    answer = await question("> ");
+    answer = await question();
 
     const [cmd, ...args] = answer.split(" ");
     const preCommands: Record<string, any> = {
@@ -148,20 +101,19 @@ function question(question: string): Promise<string> {
 function requestSuperPeer() {
   console.log("gonna send request: requestSuperPeer");
 
-  const serverPort = 8080;
   const body: IPacketData<ServerMessage, undefined> = {
     message: ServerMessage.requestSuperPeer,
   };
 
   const serializedBody = JSON.stringify(body);
-  socket.send(serializedBody, serverPort);
+  socket.send(serializedBody, SERVER_PORT, SERVER_ADDR);
 }
 
 function search(fileName: string) {
   console.log("gonna send request: search");
 
-  const body: IPacketData<PeerMessage, { name: string }> = {
-    message: PeerMessage.searchResource,
+  const body: IPacketData<SuperPeerMessage, { name: string }> = {
+    message: SuperPeerMessage.searchResource,
     payload: { name: fileName },
   };
 
@@ -185,13 +137,26 @@ function registerFiles(folderPath: string) {
 
   peer.registerFiles(folderPath);
   const data: IPacketData<
-    PeerMessage,
+    SuperPeerMessage,
     Record<string, Partial<IResourceData>>
   > = {
-    message: PeerMessage.registerFiles,
+    message: SuperPeerMessage.registerFiles,
     payload: peer.localFiles,
   };
 
   const serializedBody = JSON.stringify(data);
   socket.send(serializedBody, peer.superPeer!.port, peer.superPeer!.addr);
+}
+
+function scheduleKeepAlive() {
+  setInterval(() => {
+    sendKeepAlive();
+  }, KA_TIMEOUT);
+}
+
+function sendKeepAlive() {
+  const data: IPacketData<SuperPeerMessage, undefined> = {
+    message: SuperPeerMessage.keepAlive,
+  };
+  socket.send(JSON.stringify(data), peer.superPeer!.port, peer.superPeer!.addr);
 }
