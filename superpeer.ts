@@ -5,6 +5,8 @@ import { IConnectable } from "./src/interface/IConnectable";
 import { IResourceData } from "./src/Peer/Peer";
 import { SuperPeerMessage } from "./src/SuperPeer/SuperPeerMessage";
 import SuperPeer from "./src/SuperPeer/SuperPeer";
+import { ServerMessage } from "./src/IndexServer/ServerMessage";
+import { SERVER_ADDR, SERVER_PORT } from "./src/shared/Constants";
 
 const args = argv.slice(2);
 const [addr, portArg] = args;
@@ -23,6 +25,7 @@ socket.bind(port, addr);
 
 socket.on("listening", () => {
   console.log("[PEER] listening on port", port);
+  requestNextPeer();
 });
 
 socket.on("message", (message, info) => {
@@ -39,6 +42,7 @@ socket.on("message", (message, info) => {
       [SuperPeerMessage.searchResource]: onSearchMessageReceived,
       [SuperPeerMessage.registerFiles]: onRegisterFilesMessageReceived,
       [SuperPeerMessage.keepAlive]: onKeepAlive,
+      [SuperPeerMessage.nextPeerData]: onNextPeerReceived,
     };
 
     messages[data.message](message, info);
@@ -48,6 +52,18 @@ socket.on("message", (message, info) => {
 });
 
 // HANDLING MESSAGES RECEIVED
+
+function onNextPeerReceived(message: Buffer) {
+  const data = JSON.parse(message.toString()) as IPacketData<
+    SuperPeerMessage,
+    IConnectable
+  >;
+
+  if (!data.payload) {
+    return;
+  }
+  peer.next = data.payload;
+}
 
 function onKeepAlive(message: Buffer, info: RemoteInfo) {
   const { address, port } = info;
@@ -77,4 +93,14 @@ function onSearchMessageReceived(message: Buffer) {
 
   const result = (peer as SuperPeer).searchInDHT(data.payload!.name);
   console.log(result);
+}
+
+// SENDING FUNCTIONS
+
+function requestNextPeer() {
+  const data: IPacketData<ServerMessage, undefined> = {
+    message: ServerMessage.requestNextPeer,
+  };
+
+  socket.send(JSON.stringify(data), SERVER_PORT, SERVER_ADDR);
 }

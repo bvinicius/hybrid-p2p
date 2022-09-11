@@ -1,13 +1,30 @@
 import { IConnectable } from "../interface/IConnectable";
 class IndexServer {
   readonly superPeers: Record<string, ISuperPeerData> = {
-    sp1: { addr: "localhost", port: 2020, next: "sp2" },
-    sp2: { addr: "localhost", port: 2021, next: "sp3" },
-    sp3: { addr: "localhost", port: 2022, next: "sp4" },
-    sp4: { addr: "localhost", port: 2023, next: "sp1" },
+    sp1: { addr: "127.0.0.1", port: 2020, next: "sp2" },
+    sp2: { addr: "127.0.0.1", port: 2021, next: "sp3" },
+    sp3: { addr: "127.0.0.1", port: 2022, next: "sp4" },
+    sp4: { addr: "127.0.0.1", port: 2023, next: "sp1" },
   };
 
   constructor() {}
+
+  pickNextPeer(addr: string, port: number): IConnectable | null {
+    const peerKey = Object.keys(this.superPeers).find(
+      (key) =>
+        this.superPeers[key].addr === addr && this.superPeers[key].port === port
+    );
+
+    if (!peerKey) {
+      return null;
+    }
+
+    const nextKey = this.superPeers[peerKey].next as string;
+    return {
+      addr: this.superPeers[nextKey].addr,
+      port: this.superPeers[nextKey].port,
+    };
+  }
 
   pickSuperPeer(): IConnectable {
     const random =

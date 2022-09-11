@@ -7,10 +7,7 @@ import { IConnectable } from "./src/interface/IConnectable";
 import * as readline from "readline";
 import Peer, { IResourceData } from "./src/Peer/Peer";
 import { SuperPeerMessage } from "./src/SuperPeer/SuperPeerMessage";
-
-const KA_TIMEOUT = 1000;
-const SERVER_ADDR = "localhost";
-const SERVER_PORT = 8080;
+import { KA_TIMEOUT, SERVER_ADDR, SERVER_PORT } from "./src/shared/Constants";
 
 const args = argv.slice(2);
 const [addr, portArg] = args;
