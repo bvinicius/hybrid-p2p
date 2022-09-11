@@ -3,4 +3,5 @@ export enum SuperPeerMessage {
   registerFiles = "registerFiles",
   keepAlive = "keepAlive",
   nextPeerData = "nextPeerData",
+  dhtSearch = "dhtSearch",
 }

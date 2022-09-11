@@ -2,11 +2,12 @@ import { createSocket, RemoteInfo } from "dgram";
 import { argv, exit } from "process";
 import IPacketData from "./src/interface/IPacketData";
 import { IConnectable } from "./src/interface/IConnectable";
-import { IResourceData } from "./src/Peer/Peer";
+import Peer, { IResourceData } from "./src/Peer/Peer";
 import { SuperPeerMessage } from "./src/SuperPeer/SuperPeerMessage";
 import SuperPeer from "./src/SuperPeer/SuperPeer";
 import { ServerMessage } from "./src/IndexServer/ServerMessage";
 import { SERVER_ADDR, SERVER_PORT } from "./src/shared/Constants";
+import { PeerMessage } from "./src/Peer/PeerMessage";
 
 const args = argv.slice(2);
 const [addr, portArg] = args;
@@ -43,6 +44,7 @@ socket.on("message", (message, info) => {
       [SuperPeerMessage.registerFiles]: onRegisterFilesMessageReceived,
       [SuperPeerMessage.keepAlive]: onKeepAlive,
       [SuperPeerMessage.nextPeerData]: onNextPeerReceived,
+      [SuperPeerMessage.dhtSearch]: onDHTSearch,
     };
 
     messages[data.message](message, info);
@@ -52,6 +54,36 @@ socket.on("message", (message, info) => {
 });
 
 // HANDLING MESSAGES RECEIVED
+
+function onDHTSearch(message: Buffer) {
+  const data = JSON.parse(message.toString()) as IPacketData<
+    SuperPeerMessage,
+    IDHTSearchData
+  >;
+
+  const searchOrigin = data.payload!.searchOrigin;
+  const peerInfo = data.payload!.peerInfo;
+  const currentDHT = data.payload!.currentDHT;
+
+  if (searchOrigin.addr === peer.addr && searchOrigin.port === peer.port) {
+    const data: IPacketData<PeerMessage, Record<string, IResourceData>> = {
+      message: PeerMessage.searchResult,
+      payload: currentDHT,
+    };
+
+    socket.send(JSON.stringify(data), peerInfo.port, peerInfo.addr);
+    return;
+  }
+
+  const localDHT = peer.searchInDHT(data.payload!.name);
+
+  searchOnNext(
+    data.payload!.name,
+    { ...currentDHT, ...localDHT },
+    peerInfo,
+    searchOrigin
+  );
+}
 
 function onNextPeerReceived(message: Buffer) {
   const data = JSON.parse(message.toString()) as IPacketData<
@@ -84,15 +116,36 @@ function onRegisterFilesMessageReceived(message: Buffer, info: RemoteInfo) {
   superPeer.updateDHT(data.payload!, info);
 }
 
-function onSearchMessageReceived(message: Buffer) {
+function onSearchMessageReceived(message: Buffer, info: RemoteInfo) {
   console.log("SEARCH REQUEST RECEIVED");
   const data = JSON.parse(message.toString()) as IPacketData<
     SuperPeerMessage,
     { name: string }
   >;
 
-  const result = (peer as SuperPeer).searchInDHT(data.payload!.name);
-  console.log(result);
+  const result = searchInLocalDHT(message);
+  const peerInfo = { addr: info.address, port: info.port };
+  const searchOrigin = { addr: peer.addr, port: peer.port };
+  searchOnNext(data.payload!.name, result, peerInfo, searchOrigin);
+}
+
+function searchOnNext(
+  name: string,
+  currentDHT: Record<string, IResourceData>,
+  peerInfo: IConnectable,
+  searchOrigin: IConnectable
+) {
+  const data: IPacketData<SuperPeerMessage, IDHTSearchData> = {
+    message: SuperPeerMessage.dhtSearch,
+    payload: {
+      name,
+      currentDHT,
+      peerInfo,
+      searchOrigin,
+    },
+  };
+
+  socket.send(JSON.stringify(data), peer.next?.port, peer.next?.addr);
 }
 
 // SENDING FUNCTIONS
@@ -103,4 +156,20 @@ function requestNextPeer() {
   };
 
   socket.send(JSON.stringify(data), SERVER_PORT, SERVER_ADDR);
+}
+
+function searchInLocalDHT(message: Buffer): Record<string, IResourceData> {
+  const data = JSON.parse(message.toString()) as IPacketData<
+    SuperPeerMessage,
+    Partial<IDHTSearchData>
+  >;
+
+  return peer.searchInDHT(data.payload!.name!);
+}
+
+interface IDHTSearchData {
+  name: string;
+  currentDHT: Record<string, IResourceData>;
+  peerInfo: IConnectable;
+  searchOrigin: IConnectable;
 }

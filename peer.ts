@@ -40,6 +40,7 @@ socket.on("message", (message, info) => {
       (message: Buffer, info: RemoteInfo) => void
     > = {
       [PeerMessage.superPeerData]: onSuperPeerReceived,
+      [PeerMessage.searchResult]: onSearchResult,
     };
 
     messages[data.message](message, info);
@@ -49,6 +50,11 @@ socket.on("message", (message, info) => {
 });
 
 // HANDLING MESSAGES RECEIVED
+
+function onSearchResult(message: Buffer, info: RemoteInfo) {
+  console.log("RESULT!!!");
+}
+
 function onSuperPeerReceived(message: Buffer, info: RemoteInfo) {
   console.log("PEER RECEIVED", info.port);
   const data = JSON.parse(message.toString()) as IPacketData<
