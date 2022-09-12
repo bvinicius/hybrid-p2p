@@ -51,8 +51,19 @@ socket.on("message", (message, info) => {
 
 // HANDLING MESSAGES RECEIVED
 
-function onSearchResult(message: Buffer, info: RemoteInfo) {
-  console.log("RESULT!!!");
+async function onSearchResult(message: Buffer, info: RemoteInfo) {
+  const data = JSON.parse(message.toString()) as IPacketData<
+    PeerMessage,
+    Record<string, IResourceData>
+  >;
+
+  console.log("\n\n*** SEARCH RESULTS ***\n");
+  Object.values(data.payload!).forEach((resource, index) => {
+    console.log(`${index + 1} - ${resource.fileName}`);
+  });
+
+  const answer = await question("Choose one of the resources above. \n>");
+  console.log(answer);
 }
 
 function onSuperPeerReceived(message: Buffer, info: RemoteInfo) {
@@ -71,19 +82,18 @@ const rl = readline.createInterface({
   output: process.stdout,
 });
 
-function question(): Promise<string> {
+function question(question: string): Promise<string> {
   return new Promise((resolve) => {
-    return rl.question("> ", (answer) => {
+    return rl.question(question, (answer) => {
       resolve(answer);
     });
   });
 }
 
 (async () => {
-  console.log("\n");
   let answer = "";
   while (answer != "quit") {
-    answer = await question();
+    answer = await question("> ");
 
     const [cmd, ...args] = answer.split(" ");
     const preCommands: Record<string, any> = {
