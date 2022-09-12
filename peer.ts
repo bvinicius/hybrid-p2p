@@ -51,7 +51,7 @@ socket.on("message", (message, info) => {
 
 // HANDLING MESSAGES RECEIVED
 
-async function onSearchResult(message: Buffer, info: RemoteInfo) {
+function onSearchResult(message: Buffer, info: RemoteInfo) {
   const data = JSON.parse(message.toString()) as IPacketData<
     PeerMessage,
     Record<string, IResourceData>
@@ -62,8 +62,19 @@ async function onSearchResult(message: Buffer, info: RemoteInfo) {
     console.log(`${index + 1} - ${resource.fileName}`);
   });
 
-  const answer = await question("Choose one of the resources above. \n>");
-  console.log(answer);
+  rl.close();
+  const r2 = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  r2.question("\nChoose one of the resources above. \n", (answer) => {
+    console.log(answer);
+
+    rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+  });
 }
 
 function onSuperPeerReceived(message: Buffer, info: RemoteInfo) {
@@ -77,7 +88,7 @@ function onSuperPeerReceived(message: Buffer, info: RemoteInfo) {
 }
 
 // TERMINAL
-const rl = readline.createInterface({
+let rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
