@@ -3,7 +3,7 @@ import fs from "fs";
 import { createHash, createHmac } from "crypto";
 class Peer implements IConnectable {
   superPeer?: IConnectable;
-  localFiles: Record<string, Partial<IResourceData>> = {};
+  localFiles: Record<string, IResourceData> = {};
 
   constructor(public addr: string, public port: number) {}
 
@@ -17,7 +17,7 @@ class Peer implements IConnectable {
       const digest: string = hash.read();
 
       Object.assign(this.localFiles, {
-        [digest]: { fileName, folderPath },
+        [digest]: { fileName, folderPath, addr: this.addr, port: this.port },
       });
     });
   }

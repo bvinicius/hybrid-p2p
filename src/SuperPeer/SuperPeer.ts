@@ -1,6 +1,7 @@
 import { RemoteInfo } from "dgram";
 import { IConnectable } from "../interface/IConnectable";
 import Peer, { IResourceData } from "../Peer/Peer";
+import { getDecimalFromLastDigits } from "../shared/HashProcessor";
 
 const KA_TIMEOUT = 5000;
 
@@ -19,17 +20,12 @@ class SuperPeer extends Peer {
 
   hashNumber?: number;
 
-  updateDHT(
-    data: Record<string, Partial<IResourceData>>,
-    peerInfo: RemoteInfo
-  ) {
+  updateDHT(data: Record<string, IResourceData>) {
     Object.keys(data).forEach((hash) => {
       Object.assign(this.dht, {
-        [hash]: { ...data[hash], addr: peerInfo.address, port: peerInfo.port },
+        [hash]: { ...data[hash] },
       });
     });
-
-    this.addPeer(peerInfo.address, peerInfo.port);
   }
 
   searchInDHT(name: string): Record<string, IResourceData> {
@@ -80,7 +76,19 @@ class SuperPeer extends Peer {
       });
   }
 
-  filterHashes(hashes: Record<string, Partial<IResourceData>>) {}
+  filterHashes(hashes: Record<string, IResourceData>) {
+    const filteredHashes = { ...hashes };
+
+    Object.keys(hashes)
+      .filter((hash) => {
+        const hashNumber = getDecimalFromLastDigits(hash);
+        console.log(`HASH NUMBER: ${hash} -> ${hashNumber}`);
+        return this.hashNumber !== hashNumber;
+      })
+      .forEach((hash) => delete filteredHashes[hash]);
+
+    return filteredHashes;
+  }
 }
 
 export default SuperPeer;

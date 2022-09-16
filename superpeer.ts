@@ -11,7 +11,9 @@ import { PeerMessage } from "./src/Peer/PeerMessage";
 import { ISuperPeerData } from "./src/IndexServer/IndexServer";
 
 const args = argv.slice(2);
-const [addr, portArg] = args;
+const [strAddr, portArg] = args;
+
+const addr = strAddr === "localhost" ? "127.0.0.1" : strAddr;
 
 // SOCKET CONFIG
 const port = Number(portArg);
@@ -46,6 +48,7 @@ socket.on("message", (message, info) => {
       [SuperPeerMessage.keepAlive]: onKeepAlive,
       [SuperPeerMessage.serverInfo]: onServerInfoReceived,
       [SuperPeerMessage.dhtSearch]: onDHTSearch,
+      [SuperPeerMessage.receivedDHT]: onDHTReceived,
     };
 
     messages[data.message](message, info);
@@ -55,6 +58,26 @@ socket.on("message", (message, info) => {
 });
 
 // HANDLING MESSAGES RECEIVED
+
+function onDHTReceived(message: Buffer) {
+  const data = JSON.parse(message.toString()) as IPacketData<
+    SuperPeerMessage,
+    Record<string, IResourceData>
+  >;
+
+  if (!data.payload) {
+    return;
+  }
+
+  const filteredDHT = peer.filterHashes(data.payload);
+  peer.updateDHT(filteredDHT);
+
+  const { addr, port } = Object.values(data.payload)[0];
+  const ipPortKey = `${addr}:${port}`;
+  if (!peer.peerSet.has(ipPortKey)) {
+    sendHashesToNext(data.payload);
+  }
+}
 
 function onDHTSearch(message: Buffer) {
   const data = JSON.parse(message.toString()) as IPacketData<
@@ -108,18 +131,28 @@ function onKeepAlive(message: Buffer, info: RemoteInfo) {
 function onRegisterFilesMessageReceived(message: Buffer, info: RemoteInfo) {
   console.log("REGISTER FILES RECEIVED");
 
-  const superPeer = peer as SuperPeer;
-
   const data = JSON.parse(message.toString()) as IPacketData<
     SuperPeerMessage,
-    Record<string, Partial<IResourceData>>
+    Record<string, IResourceData>
   >;
 
-  // filtra a dht só com os meus hashes
-  const filteredDHT = data.payload!;
+  if (!data.payload) {
+    return;
+  }
 
-  // caso houver, manda o restante dos hashes para o next.
-  superPeer.updateDHT(data.payload!, info);
+  peer.addPeer(info.address, info.port);
+  sendHashesToNext(data.payload);
+}
+
+function sendHashesToNext(hashes: Record<string, IResourceData>) {
+  const data: IPacketData<SuperPeerMessage, Record<string, IResourceData>> = {
+    message: SuperPeerMessage.receivedDHT,
+    payload: hashes,
+  };
+
+  if (peer.next) {
+    socket.send(JSON.stringify(data), peer.next.port, peer.next.addr);
+  }
 }
 
 function onSearchMessageReceived(message: Buffer, info: RemoteInfo) {

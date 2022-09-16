@@ -10,7 +10,9 @@ import { SuperPeerMessage } from "./src/SuperPeer/SuperPeerMessage";
 import { KA_TIMEOUT, SERVER_ADDR, SERVER_PORT } from "./src/shared/Constants";
 
 const args = argv.slice(2);
-const [addr, portArg] = args;
+const [strAddr, portArg] = args;
+
+const addr = strAddr === "localhost" ? "127.0.0.1" : strAddr;
 
 // SOCKET CONFIG
 const port = Number(portArg);
@@ -160,10 +162,7 @@ function registerFiles(folderPath: string) {
   }
 
   peer.registerFiles(folderPath);
-  const data: IPacketData<
-    SuperPeerMessage,
-    Record<string, Partial<IResourceData>>
-  > = {
+  const data: IPacketData<SuperPeerMessage, Record<string, IResourceData>> = {
     message: SuperPeerMessage.registerFiles,
     payload: peer.localFiles,
   };
