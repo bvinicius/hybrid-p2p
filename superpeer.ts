@@ -8,6 +8,7 @@ import SuperPeer from "./src/SuperPeer/SuperPeer";
 import { ServerMessage } from "./src/IndexServer/ServerMessage";
 import { SERVER_ADDR, SERVER_PORT } from "./src/shared/Constants";
 import { PeerMessage } from "./src/Peer/PeerMessage";
+import { ISuperPeerData } from "./src/IndexServer/IndexServer";
 
 const args = argv.slice(2);
 const [addr, portArg] = args;
@@ -26,7 +27,7 @@ socket.bind(port, addr);
 
 socket.on("listening", () => {
   console.log("[PEER] listening on port", port);
-  requestNextPeer();
+  handshake();
 });
 
 socket.on("message", (message, info) => {
@@ -43,7 +44,7 @@ socket.on("message", (message, info) => {
       [SuperPeerMessage.searchResource]: onSearchMessageReceived,
       [SuperPeerMessage.registerFiles]: onRegisterFilesMessageReceived,
       [SuperPeerMessage.keepAlive]: onKeepAlive,
-      [SuperPeerMessage.nextPeerData]: onNextPeerReceived,
+      [SuperPeerMessage.serverInfo]: onServerInfoReceived,
       [SuperPeerMessage.dhtSearch]: onDHTSearch,
     };
 
@@ -85,16 +86,18 @@ function onDHTSearch(message: Buffer) {
   );
 }
 
-function onNextPeerReceived(message: Buffer) {
+function onServerInfoReceived(message: Buffer) {
   const data = JSON.parse(message.toString()) as IPacketData<
     SuperPeerMessage,
-    IConnectable
+    Partial<ISuperPeerData>
   >;
 
-  if (!data.payload) {
+  const { payload } = data;
+  if (!payload || !payload.next) {
     return;
   }
-  peer.next = data.payload;
+  peer.next = payload.next as IConnectable;
+  peer.hashNumber = payload.hashValue;
 }
 
 function onKeepAlive(message: Buffer, info: RemoteInfo) {
@@ -106,13 +109,16 @@ function onRegisterFilesMessageReceived(message: Buffer, info: RemoteInfo) {
   console.log("REGISTER FILES RECEIVED");
 
   const superPeer = peer as SuperPeer;
-  console.log(superPeer.dht);
 
   const data = JSON.parse(message.toString()) as IPacketData<
     SuperPeerMessage,
     Record<string, Partial<IResourceData>>
   >;
 
+  // filtra a dht só com os meus hashes
+  const filteredDHT = data.payload!;
+
+  // caso houver, manda o restante dos hashes para o next.
   superPeer.updateDHT(data.payload!, info);
 }
 
@@ -150,9 +156,9 @@ function searchOnNext(
 
 // SENDING FUNCTIONS
 
-function requestNextPeer() {
+function handshake() {
   const data: IPacketData<ServerMessage, undefined> = {
-    message: ServerMessage.requestNextPeer,
+    message: ServerMessage.handshake,
   };
 
   socket.send(JSON.stringify(data), SERVER_PORT, SERVER_ADDR);

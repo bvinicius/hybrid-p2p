@@ -26,7 +26,7 @@ socket.on("message", (message, info) => {
     console.log("[INDEX] data: ", data);
     const messages: Record<string, any> = {
       [ServerMessage.requestSuperPeer]: onSuperPeerRequested,
-      [ServerMessage.requestNextPeer]: onNextPeerRequested,
+      [ServerMessage.handshake]: onHandshake,
     };
 
     if (data.message in messages) {
@@ -42,10 +42,10 @@ socket.on("message", (message, info) => {
 /* Index Server Message Handling */
 const indexServer = new IndexServer();
 
-function onNextPeerRequested(info: RemoteInfo) {
-  const sp = indexServer.pickNextPeer(info.address, info.port);
+function onHandshake(info: RemoteInfo) {
+  const sp = indexServer.getPeerInfo(info.address, info.port);
   const data: IPacketData<SuperPeerMessage, any> = {
-    message: SuperPeerMessage.nextPeerData,
+    message: SuperPeerMessage.serverInfo,
     payload: sp,
   };
 

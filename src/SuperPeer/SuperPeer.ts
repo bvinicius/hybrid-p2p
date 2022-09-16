@@ -17,6 +17,8 @@ class SuperPeer extends Peer {
 
   next?: IConnectable;
 
+  hashNumber?: number;
+
   updateDHT(
     data: Record<string, Partial<IResourceData>>,
     peerInfo: RemoteInfo
@@ -77,6 +79,8 @@ class SuperPeer extends Peer {
         delete this.dht[hash];
       });
   }
+
+  filterHashes(hashes: Record<string, Partial<IResourceData>>) {}
 }
 
 export default SuperPeer;

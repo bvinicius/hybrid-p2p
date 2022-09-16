@@ -1,4 +1,4 @@
 export enum ServerMessage {
   requestSuperPeer = "requestSuperPeer",
-  requestNextPeer = "requestNextPeer",
+  handshake = "handshake",
 }

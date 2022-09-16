@@ -2,6 +2,6 @@ export enum SuperPeerMessage {
   searchResource = "searchResource",
   registerFiles = "registerFiles",
   keepAlive = "keepAlive",
-  nextPeerData = "nextPeerData",
+  serverInfo = "serverInfo",
   dhtSearch = "dhtSearch",
 }

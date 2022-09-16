@@ -1,15 +1,15 @@
 import { IConnectable } from "../interface/IConnectable";
 class IndexServer {
   readonly superPeers: Record<string, ISuperPeerData> = {
-    sp1: { addr: "127.0.0.1", port: 2020, next: "sp2" },
-    sp2: { addr: "127.0.0.1", port: 2021, next: "sp3" },
-    sp3: { addr: "127.0.0.1", port: 2022, next: "sp4" },
-    sp4: { addr: "127.0.0.1", port: 2023, next: "sp1" },
+    sp1: { addr: "127.0.0.1", port: 2020, next: "sp2", hashValue: 0 },
+    sp2: { addr: "127.0.0.1", port: 2021, next: "sp3", hashValue: 1 },
+    sp3: { addr: "127.0.0.1", port: 2022, next: "sp4", hashValue: 2 },
+    sp4: { addr: "127.0.0.1", port: 2023, next: "sp1", hashValue: 3 },
   };
 
   constructor() {}
 
-  pickNextPeer(addr: string, port: number): IConnectable | null {
+  getPeerInfo(addr: string, port: number): Partial<ISuperPeerData> | null {
     const peerKey = Object.keys(this.superPeers).find(
       (key) =>
         this.superPeers[key].addr === addr && this.superPeers[key].port === port
@@ -21,8 +21,11 @@ class IndexServer {
 
     const nextKey = this.superPeers[peerKey].next as string;
     return {
-      addr: this.superPeers[nextKey].addr,
-      port: this.superPeers[nextKey].port,
+      next: {
+        addr: this.superPeers[nextKey].addr,
+        port: this.superPeers[nextKey].port,
+      },
+      hashValue: this.superPeers[peerKey].hashValue,
     };
   }
 
@@ -44,6 +47,7 @@ class IndexServer {
         addr: sp.addr,
         port: sp.port,
         next: { addr: next.addr, port: next.port },
+        hashValue: sp.hashValue,
       };
     });
   }
@@ -51,6 +55,7 @@ class IndexServer {
 
 export default IndexServer;
 
-interface ISuperPeerData extends IConnectable {
+export interface ISuperPeerData extends IConnectable {
   next: string | IConnectable;
+  hashValue: number;
 }
