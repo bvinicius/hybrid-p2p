@@ -62,8 +62,9 @@ class SuperPeer extends Peer {
     // this.setPeerTimeout(address, port);
   }
 
-  private flushPeer(address: string, port: number) {
-    this.peerSet.delete(ipPortKey(address, port));
+  flushPeer(address: string, port: number) {
+    const peerKey = ipPortKey(address, port);
+    this.peerSet.delete(peerKey);
     Object.keys(this.dht)
       .filter(
         (key) =>
@@ -73,6 +74,7 @@ class SuperPeer extends Peer {
       .forEach((hash) => {
         delete this.dht[hash];
       });
+    delete this.peerTimeouts[peerKey];
   }
 
   filterHashes(hashes: Record<string, IResourceData>) {

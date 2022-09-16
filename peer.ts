@@ -183,7 +183,6 @@ function scheduleKeepAlive() {
 }
 
 function sendKeepAlive() {
-  console.log("Sending K.A.");
   const data: IPacketData<SuperPeerMessage, undefined> = {
     message: SuperPeerMessage.keepAlive,
   };

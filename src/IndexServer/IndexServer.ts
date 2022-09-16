@@ -2,9 +2,9 @@ import { IConnectable } from "../interface/IConnectable";
 class IndexServer {
   readonly superPeers: Record<string, ISuperPeerData> = {
     sp1: { addr: "127.0.0.1", port: 2020, next: "sp2", hashValue: 0 },
-    // sp2: { addr: "127.0.0.1", port: 2021, next: "sp3", hashValue: 1 },
-    // sp3: { addr: "127.0.0.1", port: 2022, next: "sp4", hashValue: 2 },
-    // sp4: { addr: "127.0.0.1", port: 2023, next: "sp1", hashValue: 3 },
+    sp2: { addr: "127.0.0.1", port: 2021, next: "sp3", hashValue: 1 },
+    sp3: { addr: "127.0.0.1", port: 2022, next: "sp4", hashValue: 2 },
+    sp4: { addr: "127.0.0.1", port: 2023, next: "sp1", hashValue: 3 },
   };
 
   constructor() {}

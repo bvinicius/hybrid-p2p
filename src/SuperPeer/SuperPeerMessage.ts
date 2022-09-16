@@ -5,4 +5,5 @@ export enum SuperPeerMessage {
   serverInfo = "serverInfo",
   dhtSearch = "dhtSearch",
   receivedDHT = "receivedDHT",
+  deathNote = "deathNote",
 }

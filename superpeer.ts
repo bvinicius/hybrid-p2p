@@ -1,5 +1,5 @@
 import { createSocket, RemoteInfo } from "dgram";
-import { argv, exit } from "process";
+import { argv, exit, send } from "process";
 import IPacketData from "./src/interface/IPacketData";
 import { IConnectable } from "./src/interface/IConnectable";
 import Peer, { IResourceData } from "./src/Peer/Peer";
@@ -49,6 +49,7 @@ socket.on("message", (message, info) => {
       [SuperPeerMessage.serverInfo]: onServerInfoReceived,
       [SuperPeerMessage.dhtSearch]: onDHTSearch,
       [SuperPeerMessage.receivedDHT]: onDHTReceived,
+      [SuperPeerMessage.deathNote]: onDeathNoteReceived,
     };
 
     messages[data.message](message, info);
@@ -58,6 +59,23 @@ socket.on("message", (message, info) => {
 });
 
 // HANDLING MESSAGES RECEIVED
+
+function onDeathNoteReceived(message: Buffer) {
+  const data = JSON.parse(message.toString()) as IPacketData<
+    SuperPeerMessage,
+    IConnectable
+  >;
+
+  if (!data.payload) {
+    return;
+  }
+
+  const { addr, port } = data.payload;
+  if (!peer.peerSet.has(ipPortKey(addr, port))) {
+    sendDeathNote(addr, port);
+  }
+  peer.flushPeer(addr, port);
+}
 
 function onDHTReceived(message: Buffer) {
   const data = JSON.parse(message.toString()) as IPacketData<
@@ -144,8 +162,17 @@ function setPeerTimeout(address: string, port: number) {
 
   peer.peerTimeouts[key] = setTimeout(() => {
     console.log(`Peer ${address}:${port} seems dead. Cleaning the house...`);
-    peer.onPeerTimeout(address, port);
+    sendDeathNote(address, port);
   }, KA_TIMEOUT);
+}
+
+function sendDeathNote(addr: string, port: number) {
+  const data: IPacketData<SuperPeerMessage, IConnectable> = {
+    message: SuperPeerMessage.deathNote,
+    payload: { addr, port },
+  };
+
+  socket.send(JSON.stringify(data), peer.next?.port, peer.next?.addr);
 }
 
 function onRegisterFilesMessageReceived(message: Buffer, info: RemoteInfo) {
