@@ -7,7 +7,12 @@ import { IConnectable } from "./src/interface/IConnectable";
 import * as readline from "readline";
 import Peer, { IResourceData } from "./src/Peer/Peer";
 import { SuperPeerMessage } from "./src/SuperPeer/SuperPeerMessage";
-import { KA_TIMEOUT, SERVER_ADDR, SERVER_PORT } from "./src/shared/Constants";
+import {
+  KA_INTERVAL,
+  KA_TIMEOUT,
+  SERVER_ADDR,
+  SERVER_PORT,
+} from "./src/shared/Constants";
 
 const args = argv.slice(2);
 const [strAddr, portArg] = args;
@@ -174,10 +179,11 @@ function registerFiles(folderPath: string) {
 function scheduleKeepAlive() {
   setInterval(() => {
     sendKeepAlive();
-  }, KA_TIMEOUT);
+  }, KA_INTERVAL);
 }
 
 function sendKeepAlive() {
+  console.log("Sending K.A.");
   const data: IPacketData<SuperPeerMessage, undefined> = {
     message: SuperPeerMessage.keepAlive,
   };

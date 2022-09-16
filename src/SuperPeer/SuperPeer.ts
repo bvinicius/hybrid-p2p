@@ -1,11 +1,10 @@
 import { RemoteInfo } from "dgram";
 import { IConnectable } from "../interface/IConnectable";
 import Peer, { IResourceData } from "../Peer/Peer";
+import { KA_TIMEOUT } from "../shared/Constants";
 import { getDecimalFromLastDigits } from "../shared/HashProcessor";
 
-const KA_TIMEOUT = 5000;
-
-function ipPortKey(address: string, port: number) {
+export function ipPortKey(address: string, port: number) {
   return `${address}:${port}`;
 }
 
@@ -40,27 +39,27 @@ class SuperPeer extends Peer {
     return filteredDHT;
   }
 
-  setPeerTimeout(address: string, port: number) {
-    const key = ipPortKey(address, port);
+  // setPeerTimeout(address: string, port: number) {
+  //   const key = ipPortKey(address, port);
 
-    if (!this.peerSet.has(key)) {
-      return;
-    }
+  //   if (!this.peerSet.has(key)) {
+  //     return;
+  //   }
 
-    const peerTimeout = this.peerTimeouts[key];
-    if (peerTimeout) {
-      clearTimeout(peerTimeout);
-    }
+  //   const peerTimeout = this.peerTimeouts[key];
+  //   if (peerTimeout) {
+  //     clearTimeout(peerTimeout);
+  //   }
 
-    this.peerTimeouts[key] = setTimeout(() => {
-      console.log(`Peer ${address}:${port} seems dead. Cleaning the house...`);
-      this.flushPeer(address, port);
-    }, KA_TIMEOUT);
-  }
+  //   this.peerTimeouts[key] = setTimeout(() => {
+  //     console.log(`Peer ${address}:${port} seems dead. Cleaning the house...`);
+  //     this.flushPeer(address, port);
+  //   }, KA_TIMEOUT);
+  // }
 
   addPeer(address: string, port: number) {
     this.peerSet.add(ipPortKey(address, port));
-    this.setPeerTimeout(address, port);
+    // this.setPeerTimeout(address, port);
   }
 
   private flushPeer(address: string, port: number) {
@@ -88,6 +87,10 @@ class SuperPeer extends Peer {
       .forEach((hash) => delete filteredHashes[hash]);
 
     return filteredHashes;
+  }
+
+  onPeerTimeout(addr: string, port: number) {
+    this.flushPeer(addr, port);
   }
 }
 

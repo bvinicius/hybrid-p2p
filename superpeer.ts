@@ -4,9 +4,9 @@ import IPacketData from "./src/interface/IPacketData";
 import { IConnectable } from "./src/interface/IConnectable";
 import Peer, { IResourceData } from "./src/Peer/Peer";
 import { SuperPeerMessage } from "./src/SuperPeer/SuperPeerMessage";
-import SuperPeer from "./src/SuperPeer/SuperPeer";
+import SuperPeer, { ipPortKey } from "./src/SuperPeer/SuperPeer";
 import { ServerMessage } from "./src/IndexServer/ServerMessage";
-import { SERVER_ADDR, SERVER_PORT } from "./src/shared/Constants";
+import { KA_TIMEOUT, SERVER_ADDR, SERVER_PORT } from "./src/shared/Constants";
 import { PeerMessage } from "./src/Peer/PeerMessage";
 import { ISuperPeerData } from "./src/IndexServer/IndexServer";
 
@@ -124,8 +124,28 @@ function onServerInfoReceived(message: Buffer) {
 }
 
 function onKeepAlive(message: Buffer, info: RemoteInfo) {
+  console.log("received K.A.");
   const { address, port } = info;
-  (peer as SuperPeer).setPeerTimeout(address, port);
+  setPeerTimeout(address, port);
+}
+
+function setPeerTimeout(address: string, port: number) {
+  const key = ipPortKey(address, port);
+  if (!peer.peerSet.has(key)) {
+    return;
+  }
+
+  console.log("Setting peer timeout.");
+
+  const peerTimeout = peer.peerTimeouts[key];
+  if (peerTimeout) {
+    clearTimeout(peerTimeout);
+  }
+
+  peer.peerTimeouts[key] = setTimeout(() => {
+    console.log(`Peer ${address}:${port} seems dead. Cleaning the house...`);
+    peer.onPeerTimeout(address, port);
+  }, KA_TIMEOUT);
 }
 
 function onRegisterFilesMessageReceived(message: Buffer, info: RemoteInfo) {
