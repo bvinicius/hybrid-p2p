@@ -5,6 +5,8 @@ import { IResourceData } from "./Peer";
 class FilePicker {
   private reader: readline.Interface;
 
+  lastPickedFile?: IFileOption;
+
   constructor(private files: Record<string, IResourceData>) {
     this.reader = readline.createInterface({
       input: process.stdin,
@@ -26,10 +28,12 @@ class FilePicker {
             resolve(null);
           }
           const hash = resources[index];
-          resolve({
+          const fileOption: IFileOption = {
             hash,
             ...this.files[hash],
-          });
+          };
+          this.lastPickedFile = fileOption;
+          resolve(fileOption);
         }
       );
     });

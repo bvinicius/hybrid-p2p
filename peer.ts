@@ -9,10 +9,11 @@ import Peer, { IResourceData } from "./src/Peer/Peer";
 import { SuperPeerMessage } from "./src/SuperPeer/SuperPeerMessage";
 import { KA_INTERVAL, SERVER_ADDR, SERVER_PORT } from "./src/shared/Constants";
 import FilePicker from "./src/Peer/FilePicker";
+import PeerServer from "./src/Peer/PeerServer";
+import PeerClient from "./src/Peer/PeerClient";
 
 const args = argv.slice(2);
 const [strAddr, portArg] = args;
-
 const addr = strAddr === "localhost" ? "127.0.0.1" : strAddr;
 
 // SOCKET CONFIG
@@ -44,6 +45,8 @@ socket.on("message", (message, info) => {
     > = {
       [PeerMessage.superPeerData]: onSuperPeerReceived,
       [PeerMessage.searchResult]: onSearchResult,
+      [PeerMessage.fileRequest]: onFileRequested,
+      [PeerMessage.connectionInfo]: onConnectionInfoReceived,
     };
 
     messages[data.message](message, info);
@@ -53,6 +56,44 @@ socket.on("message", (message, info) => {
 });
 
 // HANDLING MESSAGES RECEIVED
+
+function onConnectionInfoReceived(message: Buffer) {
+  const data = JSON.parse(message.toString()) as IPacketData<
+    PeerMessage,
+    IConnectable
+  >;
+  if (!data.payload) {
+    return;
+  }
+
+  const { addr, port } = data.payload;
+  const peerClient = new PeerClient();
+  if (peer.filePicker?.lastPickedFile) {
+    peerClient.requestFile(peer.filePicker.lastPickedFile.hash, addr, port);
+  }
+}
+
+async function onFileRequested(message: Buffer, info: RemoteInfo) {
+  const data = JSON.parse(message.toString()) as IPacketData<
+    PeerMessage,
+    string
+  >;
+
+  const hash: string | undefined = data.payload;
+  if (!hash) {
+    return;
+  }
+
+  if (hash in peer.localFiles) {
+    const peerServer = new PeerServer(peer.addr);
+    const { addr, port } = await peerServer.listeningReady();
+    const data: IPacketData<PeerMessage, IConnectable> = {
+      message: PeerMessage.connectionInfo,
+      payload: { addr, port },
+    };
+    socket.send(JSON.stringify(data), info.port, info.address);
+  }
+}
 
 async function onSearchResult(message: Buffer, info: RemoteInfo) {
   reader.close();
@@ -65,14 +106,14 @@ async function onSearchResult(message: Buffer, info: RemoteInfo) {
     return;
   }
 
-  const filePicker = new FilePicker(data.payload);
-  const answer = await filePicker.showOptions();
+  peer.filePicker = new FilePicker(data.payload);
+  const answer = await peer.filePicker.showOptions();
   if (answer) {
     console.log(answer);
-    // try to download that file.
+    requestFile(answer.hash, answer.addr, answer.port);
   }
 
-  filePicker.dismiss();
+  peer.filePicker.dismiss();
   reader = makeReader();
   listenCommands();
 }
@@ -88,6 +129,15 @@ function onSuperPeerReceived(message: Buffer, info: RemoteInfo) {
 }
 
 // HANDLING COMMANDS FROM TERMINAL
+
+function requestFile(hash: string, addr: string, port: number) {
+  const data: IPacketData<PeerMessage, string> = {
+    message: PeerMessage.fileRequest,
+    payload: hash,
+  };
+  socket.send(JSON.stringify(data), port, addr);
+}
+
 function requestSuperPeer() {
   console.log("gonna send request: requestSuperPeer");
 

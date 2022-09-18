@@ -1,9 +1,11 @@
 import { IConnectable } from "../interface/IConnectable";
 import fs from "fs";
 import { createHash, createHmac } from "crypto";
+import FilePicker from "./FilePicker";
 class Peer implements IConnectable {
   superPeer?: IConnectable;
   localFiles: Record<string, IResourceData> = {};
+  filePicker?: FilePicker;
 
   constructor(public addr: string, public port: number) {}
 
