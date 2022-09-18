@@ -67,7 +67,7 @@ function onConnectionInfoReceived(message: Buffer) {
   }
 
   const { addr, port } = data.payload;
-  const peerClient = new PeerClient();
+  const peerClient = new PeerClient(peer.addr, peer.port);
   if (peer.filePicker?.lastPickedFile) {
     peerClient.requestFile(peer.filePicker.lastPickedFile.hash, addr, port);
   }
@@ -85,7 +85,7 @@ async function onFileRequested(message: Buffer, info: RemoteInfo) {
   }
 
   if (hash in peer.localFiles) {
-    const peerServer = new PeerServer(peer.addr);
+    const peerServer = new PeerServer(peer.addr, peer.localFiles);
     const { addr, port } = await peerServer.listeningReady();
     const data: IPacketData<PeerMessage, IConnectable> = {
       message: PeerMessage.connectionInfo,

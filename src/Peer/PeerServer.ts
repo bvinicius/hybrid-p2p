@@ -1,13 +1,19 @@
+import { readFileSync } from "fs";
 import { AddressInfo, createServer, Server, Socket } from "net";
 import { IConnectable } from "../interface/IConnectable";
 import IPacketData from "../interface/IPacketData";
+import { IResourceData } from "./Peer";
+import { PeerClientMessage } from "./PeerClient";
 
 class PeerServer implements IConnectable {
   private server: Server;
 
   private socket?: Socket;
 
-  constructor(addr: string) {
+  constructor(
+    addr: string,
+    private registeredLocalFiles: Record<string, IResourceData>
+  ) {
     this.server = createServer((socket: Socket) => {
       this.socket = socket;
       socket.on("data", this.onSocketDataReceived.bind(this));
@@ -41,16 +47,36 @@ class PeerServer implements IConnectable {
 
     const packet = JSON.parse(data.toString()) as IPacketData<
       PeerServerMessae,
-      any
+      string
     >;
 
-    const payload = "cu de aipim";
+    if (!packet.payload) {
+      return;
+    }
 
-    this.socket?.write(payload);
+    const resource = this.registeredLocalFiles[packet.payload];
+    const resourceContent = readFileSync(
+      `${resource.folderPath}/${resource.fileName}`
+    ).toString();
+
+    const payload: IPacketData<PeerClientMessage, IDownloadData> = {
+      message: PeerClientMessage.fileReceived,
+      payload: {
+        fileName: resource.fileName,
+        content: resourceContent,
+      },
+    };
+
+    this.socket?.write(JSON.stringify(payload));
   }
 }
 
 export default PeerServer;
+
+export interface IDownloadData {
+  fileName: string;
+  content: string;
+}
 
 export enum PeerServerMessae {
   fileRequest = "fileRequest",

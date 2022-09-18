@@ -2,6 +2,7 @@ import { IConnectable } from "../interface/IConnectable";
 import fs from "fs";
 import { createHash, createHmac } from "crypto";
 import FilePicker from "./FilePicker";
+import { IDownloadData } from "./PeerServer";
 class Peer implements IConnectable {
   superPeer?: IConnectable;
   localFiles: Record<string, IResourceData> = {};
@@ -27,7 +28,8 @@ class Peer implements IConnectable {
 
 export default Peer;
 
-export interface IResourceData extends IConnectable {
-  fileName: string;
+export interface IResourceData
+  extends IConnectable,
+    Omit<IDownloadData, "content"> {
   folderPath: string;
 }
