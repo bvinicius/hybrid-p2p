@@ -7,6 +7,10 @@
     "server": "npx ts-node index-server.ts",
     "peer": "npx ts-node peer.ts",
     "superpeer": "npx ts-node superpeer.ts",
+    "sp0": "npx ts-node superpeer.ts localhost 2020",
+    "sp1": "npx ts-node superpeer.ts localhost 2021",
+    "sp2": "npx ts-node superpeer.ts localhost 2022",
+    "sp3": "npx ts-node superpeer.ts localhost 2023",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

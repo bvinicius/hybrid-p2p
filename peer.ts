@@ -7,12 +7,8 @@ import { IConnectable } from "./src/interface/IConnectable";
 import * as readline from "readline";
 import Peer, { IResourceData } from "./src/Peer/Peer";
 import { SuperPeerMessage } from "./src/SuperPeer/SuperPeerMessage";
-import {
-  KA_INTERVAL,
-  KA_TIMEOUT,
-  SERVER_ADDR,
-  SERVER_PORT,
-} from "./src/shared/Constants";
+import { KA_INTERVAL, SERVER_ADDR, SERVER_PORT } from "./src/shared/Constants";
+import FilePicker from "./src/Peer/FilePicker";
 
 const args = argv.slice(2);
 const [strAddr, portArg] = args;
@@ -58,30 +54,27 @@ socket.on("message", (message, info) => {
 
 // HANDLING MESSAGES RECEIVED
 
-function onSearchResult(message: Buffer, info: RemoteInfo) {
+async function onSearchResult(message: Buffer, info: RemoteInfo) {
+  reader.close();
   const data = JSON.parse(message.toString()) as IPacketData<
     PeerMessage,
     Record<string, IResourceData>
   >;
 
-  console.log("\n\n*** SEARCH RESULTS ***\n");
-  Object.values(data.payload!).forEach((resource, index) => {
-    console.log(`${index + 1} - ${resource.fileName}`);
-  });
+  if (!data.payload) {
+    return;
+  }
 
-  rl.close();
-  const r2 = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  r2.question("\nChoose one of the resources above. \n", (answer) => {
+  const filePicker = new FilePicker(data.payload);
+  const answer = await filePicker.showOptions();
+  if (answer) {
     console.log(answer);
+    // try to download that file.
+  }
 
-    rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-  });
+  filePicker.dismiss();
+  reader = makeReader();
+  listenCommands();
 }
 
 function onSuperPeerReceived(message: Buffer, info: RemoteInfo) {
@@ -93,40 +86,6 @@ function onSuperPeerReceived(message: Buffer, info: RemoteInfo) {
   peer.superPeer = data.payload!;
   scheduleKeepAlive();
 }
-
-// TERMINAL
-let rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-
-function question(question: string): Promise<string> {
-  return new Promise((resolve) => {
-    return rl.question(question, (answer) => {
-      resolve(answer);
-    });
-  });
-}
-
-(async () => {
-  let answer = "";
-  while (answer != "quit") {
-    answer = await question("> ");
-
-    const [cmd, ...args] = answer.split(" ");
-    const preCommands: Record<string, any> = {
-      connect: () => requestSuperPeer(),
-      search: () => search(args.join(" ")),
-      register: () => registerFiles(args[0]),
-    };
-
-    if (cmd in preCommands) {
-      preCommands[cmd]();
-    } else {
-      console.log(`[PEER] command not found: ${answer}`);
-    }
-  }
-})();
 
 // HANDLING COMMANDS FROM TERMINAL
 function requestSuperPeer() {
@@ -187,4 +146,43 @@ function sendKeepAlive() {
     message: SuperPeerMessage.keepAlive,
   };
   socket.send(JSON.stringify(data), peer.superPeer!.port, peer.superPeer!.addr);
+}
+
+// TERMINAL
+let reader = makeReader();
+listenCommands();
+
+function question(question: string): Promise<string> {
+  return new Promise((resolve) => {
+    return reader.question(question, (answer) => {
+      resolve(answer);
+    });
+  });
+}
+
+function makeReader(): readline.Interface {
+  return readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+}
+
+async function listenCommands() {
+  let answer = "";
+  while (answer != "quit") {
+    answer = await question("> ");
+
+    const [cmd, ...args] = answer.split(" ");
+    const preCommands: Record<string, any> = {
+      connect: () => requestSuperPeer(),
+      search: () => search(args.join(" ")),
+      register: () => registerFiles(args[0]),
+    };
+
+    if (cmd in preCommands) {
+      preCommands[cmd]();
+    } else {
+      console.log(`[PEER] command not found: ${answer}`);
+    }
+  }
 }
