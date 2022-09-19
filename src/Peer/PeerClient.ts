@@ -4,7 +4,7 @@ import { IConnectable } from "../interface/IConnectable";
 import IPacketData from "../interface/IPacketData";
 import { DOWNLOAD_FOLDER } from "../shared/Constants";
 import { ipPortKey } from "../SuperPeer/SuperPeer";
-import { PeerServerMessae } from "./PeerServer";
+import { BufferJSON, IDownloadData, PeerServerMessae } from "./PeerServer";
 
 class PeerClient implements IConnectable {
   private socket: Socket;
@@ -26,17 +26,20 @@ class PeerClient implements IConnectable {
   resetTimeout() {
     clearTimeout(this.timeout);
     this.timeout = setTimeout(() => {
+      const fullPacket = this.currentBuffer?.toString();
+      const data = JSON.parse(fullPacket!) as IDownloadData;
+
       this.writeInFolder(
         this.downloadsPath,
-        "vini-downloads.png",
-        Uint8Array.from(this.currentBuffer!)
+        data.fileName,
+        Uint8Array.from((data.content as BufferJSON).data)
       );
       this.currentBuffer = null;
     }, 200);
   }
 
   private onDataReceived(message: Buffer) {
-    console.log("yay");
+    console.log("chunk received.");
 
     this.resetTimeout();
 
