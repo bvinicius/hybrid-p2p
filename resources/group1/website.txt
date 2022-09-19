@@ -1,0 +1,3109 @@
+
+Tags
+Users
+Companies
+COLLECTIVES
+Explore Collectives
+TEAMS
+Create free Team
+How to deserialize a nested Buffer using JSON.parse
+Asked 6 years, 8 months ago
+Modified 6 years, 8 months ago
+Viewed 9k times
+
+7
+
+
+2
+I am trying to serialise and deserialise an object which contains multiple Buffers, however deserialising the resulting string from JSON.stringify() with JSON.parse() fails to correctly re-create the Buffers.
+
+var b64 = 'Jw8mm8h+agVwgI/yN1egchSax0WLWXSEVP0umVvv5zM='; 
+var buf = new Buffer(b64, 'base64');
+
+var source = {
+    a: {
+        buffer: buf
+    }
+};
+
+var stringify = JSON.stringify(source);
+var parse = JSON.parse(stringify);
+
+console.log("source: "+source.a.buffer.constructor.name);
+console.log("parse: "+parse.a.buffer.constructor.name);
+Gives the ouput:
+
+source: Buffer
+parse: Object
+This makes sense since the output from Buffer.toJSON() creates a simple object like so:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+I guess I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution using JSON.parse() that I am missing.
+
+javascriptjsonnode.js
+Share
+Edit
+Follow
+Flag
+edited Jan 5, 2016 at 16:02
+asked Jan 1, 2016 at 16:34
+GeekyDeaks's user avatar
+GeekyDeaks
+63066 silver badges1212 bronze badges
+1
+
+No, there's nothing more elegant. The only structured data types that JSON supports are objects and arrays. JSON.parse doesn't know anything about Buffer. The Buffer.toJSON method is simply translating the buffer into something that JSON.parse can understand. – 
+Barmar
+ Jan 1, 2016 at 16:39
+2
+
+You can pass a "reviver" function to JSON.parse in order to avoid the manual traversal. When you find the buffer property, you'll take the value and manually create and return your Buffer. – 
+user1106925
+ Jan 1, 2016 at 16:40 
+
+@squint we thought the same thing, sorry if I "stole" your answer :-) – 
+robertklep
+ Jan 1, 2016 at 16:48
+
+@robertklep: Nope, not at all. I'd have posted it below if I felt like it. :-) – 
+user1106925
+ Jan 1, 2016 at 16:48
+Add a comment
+Start a bounty
+2 Answers
+Sorted by:
+
+Highest score (default)
+
+23
+
+You could use a reviver function that checks if an object looks like a stringified Buffer, and create a proper instance from it:
+
+var parse = JSON.parse(stringify, (k, v) => {
+  if (
+    v !== null            &&
+    typeof v === 'object' && 
+    'type' in v           &&
+    v.type === 'Buffer'   &&
+    'data' in v           &&
+    Array.isArray(v.data)) {
+    return new Buffer(v.data);
+  }
+  return v;
+});
+Share
+Edit
+Follow
+Flag
+edited Jan 1, 2016 at 17:03
+answered Jan 1, 2016 at 16:47
+robertklep's user avatar
+robertklep
+191k3333 gold badges378378 silver badges365365 bronze badges
+
+Just curious, where are type and data coming from? – 
+user1106925
+ Jan 1, 2016 at 16:50
+
+@squint those are the properties of the object that a Buffer gets stringified to. – 
+robertklep
+ Jan 1, 2016 at 16:51
+
+I don't get those properties when I stringify a Buffer. Are you sure? – 
+user1106925
+ Jan 1, 2016 at 16:52
+
+@squint JSON.stringify(new Buffer('foo')) -> {"type":"Buffer","data":[102,111,111]} (Node v4.2.1) – 
+robertklep
+ Jan 1, 2016 at 16:53
+
+@robertklep, Just a note, this fails with null values. Since typeof null is "object". Try this with { "foo": null } and you get errors (because you can't enumerate over a null). – 
+user3117575
+ Jan 1, 2016 at 16:53 
+Add a comment  |  Show 7 more comments
+
+5
+
+Since JSON serializes Buffers to:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+You can just check the type and reinitialize a buffer:
+
+if (source.buf.type === 'Buffer') {
+  source.buf = new Buffer(source.buf.data);
+}
+Share
+Edit
+Follow
+Flag
+answered Jan 1, 2016 at 16:41
+user3117575
+1
+
+I'm sure he knows how to create a buffer. He's asking how to have it parsed to a Buffer automatically. "...I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution..." – 
+user1106925
+ Jan 1, 2016 at 16:44 
+2
+
+And he probably doesn't have the source. I really doubt he's actually doing a stringify immediately followed by a parse. – 
+user1106925
+ Jan 1, 2016 at 16:47
+
+@squint Whoops, should have read more closely. Robertklep's answer does the job then. – 
+user3117575
+ Jan 1, 2016 at 16:50
+Add a comment
+Your Answer
+
+
+Community wiki
+Not the answer you're looking for? Browse other questions tagged javascriptjsonnode.js or ask your own question.
+The Overflow Blog
+Hypergrowth headaches (Ep. 485)
+I spent two years trying to do what Backstage does for free
+Featured on Meta
+Planned maintenance scheduled for Wednesday, 21 September, 00:30-03:00 UTC...
+Recent Color Contrast Changes and Accessibility Updates
+Should I explain other people's code-only answers?
+Reviewer overboard! Or a request to improve the onboarding guidance for new...
+Hot Meta Posts
+5
+Are pastebin links acceptable in comments?
+11
+What happens to existing suggested edits when you roll past 2000 reputation?
+Related
+5015
+How do I create a GUID / UUID?
+7623
+How do JavaScript closures work?
+8444
+How do I check if an element is hidden in jQuery?
+7707
+How do I redirect to another webpage?
+5899
+What is the difference between "let" and "var"?
+6061
+How do I include a JavaScript file in another JavaScript file?
+7413
+How to check whether a string contains a substring in JavaScript?
+3146
+pretty-print JSON using JavaScript
+10940
+How can I remove a specific item from an array?
+6440
+How do I return the response from an asynchronous call?
+Hot Network Questions
+How to write a fully-expandable string slice in LaTeX3
+Why Is Capacitance Not Measured in Coulombs?
+What's the meaning of `weightLimit: Unlimited` in `BuyExecution`?
+How can I have <C-E> and <C-Y>'s normal mode functionalities also work in insert mode?
+Is mathematics politically and culturally neutral?
+Are push tokens considered PII under the GDPR or the CCPA?
+Is photon spin and polarization the same thing?
+Is it appropriate to bring a player character back after they had been "killed"?
+Was it a King or a Queen or neither?
+How do I call something trash in French?
+Compute the Fabius Function
+Remove single echo from audio signal
+What are some good blogs for Mathematical Statistics and Machine Learning?
+Why would installing a 486DX2 make the system freeze for minutes on boot?
+Why do balloons no longer have nets?
+Can you have a very cold swamp?
+Add an item to a list of piped items
+Issue with ConjugateTranspose[..]
+UK Can my company order me to join a social event?
+Travelling to Nebraska USA from the UK., I’m staying 3 weeks with a friend, my budget is super tight, will I get sent home?
+Tips on where to buy clothes for cold weather in Lille, France?
+Novel about a family with anti-aging technology, including former astronauts
+Robust way to resolve a DNS address in a script (IPv4 (A) and IPv6 (AAAA))?
+Can anyone give a valid argument against running sprinkler wire in 1/2" pvc water line?
+ Question feed
+
+STACK OVERFLOW
+Questions
+Help
+PRODUCTS
+Teams
+Advertising
+Collectives
+Talent
+COMPANY
+About
+Press
+Work Here
+Legal
+Privacy Policy
+Terms of Service
+Contact Us
+Cookie Settings
+Cookie Policy
+STACK EXCHANGE NETWORK
+Technology
+Culture & recreation
+Life & arts
+Science
+Professional
+Business
+API
+Data
+Blog
+Facebook
+Twitter
+LinkedIn
+Instagram
+Site design / logo © 2022 Stack Exchange Inc; user contributions licensed under CC BY-SA. rev 2022.9.16.42980
+Tags
+Users
+Companies
+COLLECTIVES
+Explore Collectives
+TEAMS
+Create free Team
+How to deserialize a nested Buffer using JSON.parse
+Asked 6 years, 8 months ago
+Modified 6 years, 8 months ago
+Viewed 9k times
+
+7
+
+
+2
+I am trying to serialise and deserialise an object which contains multiple Buffers, however deserialising the resulting string from JSON.stringify() with JSON.parse() fails to correctly re-create the Buffers.
+
+var b64 = 'Jw8mm8h+agVwgI/yN1egchSax0WLWXSEVP0umVvv5zM='; 
+var buf = new Buffer(b64, 'base64');
+
+var source = {
+    a: {
+        buffer: buf
+    }
+};
+
+var stringify = JSON.stringify(source);
+var parse = JSON.parse(stringify);
+
+console.log("source: "+source.a.buffer.constructor.name);
+console.log("parse: "+parse.a.buffer.constructor.name);
+Gives the ouput:
+
+source: Buffer
+parse: Object
+This makes sense since the output from Buffer.toJSON() creates a simple object like so:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+I guess I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution using JSON.parse() that I am missing.
+
+javascriptjsonnode.js
+Share
+Edit
+Follow
+Flag
+edited Jan 5, 2016 at 16:02
+asked Jan 1, 2016 at 16:34
+GeekyDeaks's user avatar
+GeekyDeaks
+63066 silver badges1212 bronze badges
+1
+
+No, there's nothing more elegant. The only structured data types that JSON supports are objects and arrays. JSON.parse doesn't know anything about Buffer. The Buffer.toJSON method is simply translating the buffer into something that JSON.parse can understand. – 
+Barmar
+ Jan 1, 2016 at 16:39
+2
+
+You can pass a "reviver" function to JSON.parse in order to avoid the manual traversal. When you find the buffer property, you'll take the value and manually create and return your Buffer. – 
+user1106925
+ Jan 1, 2016 at 16:40 
+
+@squint we thought the same thing, sorry if I "stole" your answer :-) – 
+robertklep
+ Jan 1, 2016 at 16:48
+
+@robertklep: Nope, not at all. I'd have posted it below if I felt like it. :-) – 
+user1106925
+ Jan 1, 2016 at 16:48
+Add a comment
+Start a bounty
+2 Answers
+Sorted by:
+
+Highest score (default)
+
+23
+
+You could use a reviver function that checks if an object looks like a stringified Buffer, and create a proper instance from it:
+
+var parse = JSON.parse(stringify, (k, v) => {
+  if (
+    v !== null            &&
+    typeof v === 'object' && 
+    'type' in v           &&
+    v.type === 'Buffer'   &&
+    'data' in v           &&
+    Array.isArray(v.data)) {
+    return new Buffer(v.data);
+  }
+  return v;
+});
+Share
+Edit
+Follow
+Flag
+edited Jan 1, 2016 at 17:03
+answered Jan 1, 2016 at 16:47
+robertklep's user avatar
+robertklep
+191k3333 gold badges378378 silver badges365365 bronze badges
+
+Just curious, where are type and data coming from? – 
+user1106925
+ Jan 1, 2016 at 16:50
+
+@squint those are the properties of the object that a Buffer gets stringified to. – 
+robertklep
+ Jan 1, 2016 at 16:51
+
+I don't get those properties when I stringify a Buffer. Are you sure? – 
+user1106925
+ Jan 1, 2016 at 16:52
+
+@squint JSON.stringify(new Buffer('foo')) -> {"type":"Buffer","data":[102,111,111]} (Node v4.2.1) – 
+robertklep
+ Jan 1, 2016 at 16:53
+
+@robertklep, Just a note, this fails with null values. Since typeof null is "object". Try this with { "foo": null } and you get errors (because you can't enumerate over a null). – 
+user3117575
+ Jan 1, 2016 at 16:53 
+Add a comment  |  Show 7 more comments
+
+5
+
+Since JSON serializes Buffers to:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+You can just check the type and reinitialize a buffer:
+
+if (source.buf.type === 'Buffer') {
+  source.buf = new Buffer(source.buf.data);
+}
+Share
+Edit
+Follow
+Flag
+answered Jan 1, 2016 at 16:41
+user3117575
+1
+
+I'm sure he knows how to create a buffer. He's asking how to have it parsed to a Buffer automatically. "...I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution..." – 
+user1106925
+ Jan 1, 2016 at 16:44 
+2
+
+And he probably doesn't have the source. I really doubt he's actually doing a stringify immediately followed by a parse. – 
+user1106925
+ Jan 1, 2016 at 16:47
+
+@squint Whoops, should have read more closely. Robertklep's answer does the job then. – 
+user3117575
+ Jan 1, 2016 at 16:50
+Add a comment
+Your Answer
+
+
+Community wiki
+Not the answer you're looking for? Browse other questions tagged javascriptjsonnode.js or ask your own question.
+The Overflow Blog
+Hypergrowth headaches (Ep. 485)
+I spent two years trying to do what Backstage does for free
+Featured on Meta
+Planned maintenance scheduled for Wednesday, 21 September, 00:30-03:00 UTC...
+Recent Color Contrast Changes and Accessibility Updates
+Should I explain other people's code-only answers?
+Reviewer overboard! Or a request to improve the onboarding guidance for new...
+Hot Meta Posts
+5
+Are pastebin links acceptable in comments?
+11
+What happens to existing suggested edits when you roll past 2000 reputation?
+Related
+5015
+How do I create a GUID / UUID?
+7623
+How do JavaScript closures work?
+8444
+How do I check if an element is hidden in jQuery?
+7707
+How do I redirect to another webpage?
+5899
+What is the difference between "let" and "var"?
+6061
+How do I include a JavaScript file in another JavaScript file?
+7413
+How to check whether a string contains a substring in JavaScript?
+3146
+pretty-print JSON using JavaScript
+10940
+How can I remove a specific item from an array?
+6440
+How do I return the response from an asynchronous call?
+Hot Network Questions
+How to write a fully-expandable string slice in LaTeX3
+Why Is Capacitance Not Measured in Coulombs?
+What's the meaning of `weightLimit: Unlimited` in `BuyExecution`?
+How can I have <C-E> and <C-Y>'s normal mode functionalities also work in insert mode?
+Is mathematics politically and culturally neutral?
+Are push tokens considered PII under the GDPR or the CCPA?
+Is photon spin and polarization the same thing?
+Is it appropriate to bring a player character back after they had been "killed"?
+Was it a King or a Queen or neither?
+How do I call something trash in French?
+Compute the Fabius Function
+Remove single echo from audio signal
+What are some good blogs for Mathematical Statistics and Machine Learning?
+Why would installing a 486DX2 make the system freeze for minutes on boot?
+Why do balloons no longer have nets?
+Can you have a very cold swamp?
+Add an item to a list of piped items
+Issue with ConjugateTranspose[..]
+UK Can my company order me to join a social event?
+Travelling to Nebraska USA from the UK., I’m staying 3 weeks with a friend, my budget is super tight, will I get sent home?
+Tips on where to buy clothes for cold weather in Lille, France?
+Novel about a family with anti-aging technology, including former astronauts
+Robust way to resolve a DNS address in a script (IPv4 (A) and IPv6 (AAAA))?
+Can anyone give a valid argument against running sprinkler wire in 1/2" pvc water line?
+ Question feed
+
+STACK OVERFLOW
+Questions
+Help
+PRODUCTS
+Teams
+Advertising
+Collectives
+Talent
+COMPANY
+About
+Press
+Work Here
+Legal
+Privacy Policy
+Terms of Service
+Contact Us
+Cookie Settings
+Cookie Policy
+STACK EXCHANGE NETWORK
+Technology
+Culture & recreation
+Life & arts
+Science
+Professional
+Business
+API
+Data
+Blog
+Facebook
+Twitter
+LinkedIn
+Instagram
+Site design / logo © 2022 Stack Exchange Inc; user contributions licensed under CC BY-SA. rev 2022.9.16.42980
+Tags
+Users
+Companies
+COLLECTIVES
+Explore Collectives
+TEAMS
+Create free Team
+How to deserialize a nested Buffer using JSON.parse
+Asked 6 years, 8 months ago
+Modified 6 years, 8 months ago
+Viewed 9k times
+
+7
+
+
+2
+I am trying to serialise and deserialise an object which contains multiple Buffers, however deserialising the resulting string from JSON.stringify() with JSON.parse() fails to correctly re-create the Buffers.
+
+var b64 = 'Jw8mm8h+agVwgI/yN1egchSax0WLWXSEVP0umVvv5zM='; 
+var buf = new Buffer(b64, 'base64');
+
+var source = {
+    a: {
+        buffer: buf
+    }
+};
+
+var stringify = JSON.stringify(source);
+var parse = JSON.parse(stringify);
+
+console.log("source: "+source.a.buffer.constructor.name);
+console.log("parse: "+parse.a.buffer.constructor.name);
+Gives the ouput:
+
+source: Buffer
+parse: Object
+This makes sense since the output from Buffer.toJSON() creates a simple object like so:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+I guess I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution using JSON.parse() that I am missing.
+
+javascriptjsonnode.js
+Share
+Edit
+Follow
+Flag
+edited Jan 5, 2016 at 16:02
+asked Jan 1, 2016 at 16:34
+GeekyDeaks's user avatar
+GeekyDeaks
+63066 silver badges1212 bronze badges
+1
+
+No, there's nothing more elegant. The only structured data types that JSON supports are objects and arrays. JSON.parse doesn't know anything about Buffer. The Buffer.toJSON method is simply translating the buffer into something that JSON.parse can understand. – 
+Barmar
+ Jan 1, 2016 at 16:39
+2
+
+You can pass a "reviver" function to JSON.parse in order to avoid the manual traversal. When you find the buffer property, you'll take the value and manually create and return your Buffer. – 
+user1106925
+ Jan 1, 2016 at 16:40 
+
+@squint we thought the same thing, sorry if I "stole" your answer :-) – 
+robertklep
+ Jan 1, 2016 at 16:48
+
+@robertklep: Nope, not at all. I'd have posted it below if I felt like it. :-) – 
+user1106925
+ Jan 1, 2016 at 16:48
+Add a comment
+Start a bounty
+2 Answers
+Sorted by:
+
+Highest score (default)
+
+23
+
+You could use a reviver function that checks if an object looks like a stringified Buffer, and create a proper instance from it:
+
+var parse = JSON.parse(stringify, (k, v) => {
+  if (
+    v !== null            &&
+    typeof v === 'object' && 
+    'type' in v           &&
+    v.type === 'Buffer'   &&
+    'data' in v           &&
+    Array.isArray(v.data)) {
+    return new Buffer(v.data);
+  }
+  return v;
+});
+Share
+Edit
+Follow
+Flag
+edited Jan 1, 2016 at 17:03
+answered Jan 1, 2016 at 16:47
+robertklep's user avatar
+robertklep
+191k3333 gold badges378378 silver badges365365 bronze badges
+
+Just curious, where are type and data coming from? – 
+user1106925
+ Jan 1, 2016 at 16:50
+
+@squint those are the properties of the object that a Buffer gets stringified to. – 
+robertklep
+ Jan 1, 2016 at 16:51
+
+I don't get those properties when I stringify a Buffer. Are you sure? – 
+user1106925
+ Jan 1, 2016 at 16:52
+
+@squint JSON.stringify(new Buffer('foo')) -> {"type":"Buffer","data":[102,111,111]} (Node v4.2.1) – 
+robertklep
+ Jan 1, 2016 at 16:53
+
+@robertklep, Just a note, this fails with null values. Since typeof null is "object". Try this with { "foo": null } and you get errors (because you can't enumerate over a null). – 
+user3117575
+ Jan 1, 2016 at 16:53 
+Add a comment  |  Show 7 more comments
+
+5
+
+Since JSON serializes Buffers to:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+You can just check the type and reinitialize a buffer:
+
+if (source.buf.type === 'Buffer') {
+  source.buf = new Buffer(source.buf.data);
+}
+Share
+Edit
+Follow
+Flag
+answered Jan 1, 2016 at 16:41
+user3117575
+1
+
+I'm sure he knows how to create a buffer. He's asking how to have it parsed to a Buffer automatically. "...I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution..." – 
+user1106925
+ Jan 1, 2016 at 16:44 
+2
+
+And he probably doesn't have the source. I really doubt he's actually doing a stringify immediately followed by a parse. – 
+user1106925
+ Jan 1, 2016 at 16:47
+
+@squint Whoops, should have read more closely. Robertklep's answer does the job then. – 
+user3117575
+ Jan 1, 2016 at 16:50
+Add a comment
+Your Answer
+
+
+Community wiki
+Not the answer you're looking for? Browse other questions tagged javascriptjsonnode.js or ask your own question.
+The Overflow Blog
+Hypergrowth headaches (Ep. 485)
+I spent two years trying to do what Backstage does for free
+Featured on Meta
+Planned maintenance scheduled for Wednesday, 21 September, 00:30-03:00 UTC...
+Recent Color Contrast Changes and Accessibility Updates
+Should I explain other people's code-only answers?
+Reviewer overboard! Or a request to improve the onboarding guidance for new...
+Hot Meta Posts
+5
+Are pastebin links acceptable in comments?
+11
+What happens to existing suggested edits when you roll past 2000 reputation?
+Related
+5015
+How do I create a GUID / UUID?
+7623
+How do JavaScript closures work?
+8444
+How do I check if an element is hidden in jQuery?
+7707
+How do I redirect to another webpage?
+5899
+What is the difference between "let" and "var"?
+6061
+How do I include a JavaScript file in another JavaScript file?
+7413
+How to check whether a string contains a substring in JavaScript?
+3146
+pretty-print JSON using JavaScript
+10940
+How can I remove a specific item from an array?
+6440
+How do I return the response from an asynchronous call?
+Hot Network Questions
+How to write a fully-expandable string slice in LaTeX3
+Why Is Capacitance Not Measured in Coulombs?
+What's the meaning of `weightLimit: Unlimited` in `BuyExecution`?
+How can I have <C-E> and <C-Y>'s normal mode functionalities also work in insert mode?
+Is mathematics politically and culturally neutral?
+Are push tokens considered PII under the GDPR or the CCPA?
+Is photon spin and polarization the same thing?
+Is it appropriate to bring a player character back after they had been "killed"?
+Was it a King or a Queen or neither?
+How do I call something trash in French?
+Compute the Fabius Function
+Remove single echo from audio signal
+What are some good blogs for Mathematical Statistics and Machine Learning?
+Why would installing a 486DX2 make the system freeze for minutes on boot?
+Why do balloons no longer have nets?
+Can you have a very cold swamp?
+Add an item to a list of piped items
+Issue with ConjugateTranspose[..]
+UK Can my company order me to join a social event?
+Travelling to Nebraska USA from the UK., I’m staying 3 weeks with a friend, my budget is super tight, will I get sent home?
+Tips on where to buy clothes for cold weather in Lille, France?
+Novel about a family with anti-aging technology, including former astronauts
+Robust way to resolve a DNS address in a script (IPv4 (A) and IPv6 (AAAA))?
+Can anyone give a valid argument against running sprinkler wire in 1/2" pvc water line?
+ Question feed
+
+STACK OVERFLOW
+Questions
+Help
+PRODUCTS
+Teams
+Advertising
+Collectives
+Talent
+COMPANY
+About
+Press
+Work Here
+Legal
+Privacy Policy
+Terms of Service
+Contact Us
+Cookie Settings
+Cookie Policy
+STACK EXCHANGE NETWORK
+Technology
+Culture & recreation
+Life & arts
+Science
+Professional
+Business
+API
+Data
+Blog
+Facebook
+Twitter
+LinkedIn
+Instagram
+Site design / logo © 2022 Stack Exchange Inc; user contributions licensed under CC BY-SA. rev 2022.9.16.42980
+Tags
+Users
+Companies
+COLLECTIVES
+Explore Collectives
+TEAMS
+Create free Team
+How to deserialize a nested Buffer using JSON.parse
+Asked 6 years, 8 months ago
+Modified 6 years, 8 months ago
+Viewed 9k times
+
+7
+
+
+2
+I am trying to serialise and deserialise an object which contains multiple Buffers, however deserialising the resulting string from JSON.stringify() with JSON.parse() fails to correctly re-create the Buffers.
+
+var b64 = 'Jw8mm8h+agVwgI/yN1egchSax0WLWXSEVP0umVvv5zM='; 
+var buf = new Buffer(b64, 'base64');
+
+var source = {
+    a: {
+        buffer: buf
+    }
+};
+
+var stringify = JSON.stringify(source);
+var parse = JSON.parse(stringify);
+
+console.log("source: "+source.a.buffer.constructor.name);
+console.log("parse: "+parse.a.buffer.constructor.name);
+Gives the ouput:
+
+source: Buffer
+parse: Object
+This makes sense since the output from Buffer.toJSON() creates a simple object like so:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+I guess I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution using JSON.parse() that I am missing.
+
+javascriptjsonnode.js
+Share
+Edit
+Follow
+Flag
+edited Jan 5, 2016 at 16:02
+asked Jan 1, 2016 at 16:34
+GeekyDeaks's user avatar
+GeekyDeaks
+63066 silver badges1212 bronze badges
+1
+
+No, there's nothing more elegant. The only structured data types that JSON supports are objects and arrays. JSON.parse doesn't know anything about Buffer. The Buffer.toJSON method is simply translating the buffer into something that JSON.parse can understand. – 
+Barmar
+ Jan 1, 2016 at 16:39
+2
+
+You can pass a "reviver" function to JSON.parse in order to avoid the manual traversal. When you find the buffer property, you'll take the value and manually create and return your Buffer. – 
+user1106925
+ Jan 1, 2016 at 16:40 
+
+@squint we thought the same thing, sorry if I "stole" your answer :-) – 
+robertklep
+ Jan 1, 2016 at 16:48
+
+@robertklep: Nope, not at all. I'd have posted it below if I felt like it. :-) – 
+user1106925
+ Jan 1, 2016 at 16:48
+Add a comment
+Start a bounty
+2 Answers
+Sorted by:
+
+Highest score (default)
+
+23
+
+You could use a reviver function that checks if an object looks like a stringified Buffer, and create a proper instance from it:
+
+var parse = JSON.parse(stringify, (k, v) => {
+  if (
+    v !== null            &&
+    typeof v === 'object' && 
+    'type' in v           &&
+    v.type === 'Buffer'   &&
+    'data' in v           &&
+    Array.isArray(v.data)) {
+    return new Buffer(v.data);
+  }
+  return v;
+});
+Share
+Edit
+Follow
+Flag
+edited Jan 1, 2016 at 17:03
+answered Jan 1, 2016 at 16:47
+robertklep's user avatar
+robertklep
+191k3333 gold badges378378 silver badges365365 bronze badges
+
+Just curious, where are type and data coming from? – 
+user1106925
+ Jan 1, 2016 at 16:50
+
+@squint those are the properties of the object that a Buffer gets stringified to. – 
+robertklep
+ Jan 1, 2016 at 16:51
+
+I don't get those properties when I stringify a Buffer. Are you sure? – 
+user1106925
+ Jan 1, 2016 at 16:52
+
+@squint JSON.stringify(new Buffer('foo')) -> {"type":"Buffer","data":[102,111,111]} (Node v4.2.1) – 
+robertklep
+ Jan 1, 2016 at 16:53
+
+@robertklep, Just a note, this fails with null values. Since typeof null is "object". Try this with { "foo": null } and you get errors (because you can't enumerate over a null). – 
+user3117575
+ Jan 1, 2016 at 16:53 
+Add a comment  |  Show 7 more comments
+
+5
+
+Since JSON serializes Buffers to:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+You can just check the type and reinitialize a buffer:
+
+if (source.buf.type === 'Buffer') {
+  source.buf = new Buffer(source.buf.data);
+}
+Share
+Edit
+Follow
+Flag
+answered Jan 1, 2016 at 16:41
+user3117575
+1
+
+I'm sure he knows how to create a buffer. He's asking how to have it parsed to a Buffer automatically. "...I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution..." – 
+user1106925
+ Jan 1, 2016 at 16:44 
+2
+
+And he probably doesn't have the source. I really doubt he's actually doing a stringify immediately followed by a parse. – 
+user1106925
+ Jan 1, 2016 at 16:47
+
+@squint Whoops, should have read more closely. Robertklep's answer does the job then. – 
+user3117575
+ Jan 1, 2016 at 16:50
+Add a comment
+Your Answer
+
+
+Community wiki
+Not the answer you're looking for? Browse other questions tagged javascriptjsonnode.js or ask your own question.
+The Overflow Blog
+Hypergrowth headaches (Ep. 485)
+I spent two years trying to do what Backstage does for free
+Featured on Meta
+Planned maintenance scheduled for Wednesday, 21 September, 00:30-03:00 UTC...
+Recent Color Contrast Changes and Accessibility Updates
+Should I explain other people's code-only answers?
+Reviewer overboard! Or a request to improve the onboarding guidance for new...
+Hot Meta Posts
+5
+Are pastebin links acceptable in comments?
+11
+What happens to existing suggested edits when you roll past 2000 reputation?
+Related
+5015
+How do I create a GUID / UUID?
+7623
+How do JavaScript closures work?
+8444
+How do I check if an element is hidden in jQuery?
+7707
+How do I redirect to another webpage?
+5899
+What is the difference between "let" and "var"?
+6061
+How do I include a JavaScript file in another JavaScript file?
+7413
+How to check whether a string contains a substring in JavaScript?
+3146
+pretty-print JSON using JavaScript
+10940
+How can I remove a specific item from an array?
+6440
+How do I return the response from an asynchronous call?
+Hot Network Questions
+How to write a fully-expandable string slice in LaTeX3
+Why Is Capacitance Not Measured in Coulombs?
+What's the meaning of `weightLimit: Unlimited` in `BuyExecution`?
+How can I have <C-E> and <C-Y>'s normal mode functionalities also work in insert mode?
+Is mathematics politically and culturally neutral?
+Are push tokens considered PII under the GDPR or the CCPA?
+Is photon spin and polarization the same thing?
+Is it appropriate to bring a player character back after they had been "killed"?
+Was it a King or a Queen or neither?
+How do I call something trash in French?
+Compute the Fabius Function
+Remove single echo from audio signal
+What are some good blogs for Mathematical Statistics and Machine Learning?
+Why would installing a 486DX2 make the system freeze for minutes on boot?
+Why do balloons no longer have nets?
+Can you have a very cold swamp?
+Add an item to a list of piped items
+Issue with ConjugateTranspose[..]
+UK Can my company order me to join a social event?
+Travelling to Nebraska USA from the UK., I’m staying 3 weeks with a friend, my budget is super tight, will I get sent home?
+Tips on where to buy clothes for cold weather in Lille, France?
+Novel about a family with anti-aging technology, including former astronauts
+Robust way to resolve a DNS address in a script (IPv4 (A) and IPv6 (AAAA))?
+Can anyone give a valid argument against running sprinkler wire in 1/2" pvc water line?
+ Question feed
+
+STACK OVERFLOW
+Questions
+Help
+PRODUCTS
+Teams
+Advertising
+Collectives
+Talent
+COMPANY
+About
+Press
+Work Here
+Legal
+Privacy Policy
+Terms of Service
+Contact Us
+Cookie Settings
+Cookie Policy
+STACK EXCHANGE NETWORK
+Technology
+Culture & recreation
+Life & arts
+Science
+Professional
+Business
+API
+Data
+Blog
+Facebook
+Twitter
+LinkedIn
+Instagram
+Site design / logo © 2022 Stack Exchange Inc; user contributions licensed under CC BY-SA. rev 2022.9.16.42980
+Tags
+Users
+Companies
+COLLECTIVES
+Explore Collectives
+TEAMS
+Create free Team
+How to deserialize a nested Buffer using JSON.parse
+Asked 6 years, 8 months ago
+Modified 6 years, 8 months ago
+Viewed 9k times
+
+7
+
+
+2
+I am trying to serialise and deserialise an object which contains multiple Buffers, however deserialising the resulting string from JSON.stringify() with JSON.parse() fails to correctly re-create the Buffers.
+
+var b64 = 'Jw8mm8h+agVwgI/yN1egchSax0WLWXSEVP0umVvv5zM='; 
+var buf = new Buffer(b64, 'base64');
+
+var source = {
+    a: {
+        buffer: buf
+    }
+};
+
+var stringify = JSON.stringify(source);
+var parse = JSON.parse(stringify);
+
+console.log("source: "+source.a.buffer.constructor.name);
+console.log("parse: "+parse.a.buffer.constructor.name);
+Gives the ouput:
+
+source: Buffer
+parse: Object
+This makes sense since the output from Buffer.toJSON() creates a simple object like so:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+I guess I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution using JSON.parse() that I am missing.
+
+javascriptjsonnode.js
+Share
+Edit
+Follow
+Flag
+edited Jan 5, 2016 at 16:02
+asked Jan 1, 2016 at 16:34
+GeekyDeaks's user avatar
+GeekyDeaks
+63066 silver badges1212 bronze badges
+1
+
+No, there's nothing more elegant. The only structured data types that JSON supports are objects and arrays. JSON.parse doesn't know anything about Buffer. The Buffer.toJSON method is simply translating the buffer into something that JSON.parse can understand. – 
+Barmar
+ Jan 1, 2016 at 16:39
+2
+
+You can pass a "reviver" function to JSON.parse in order to avoid the manual traversal. When you find the buffer property, you'll take the value and manually create and return your Buffer. – 
+user1106925
+ Jan 1, 2016 at 16:40 
+
+@squint we thought the same thing, sorry if I "stole" your answer :-) – 
+robertklep
+ Jan 1, 2016 at 16:48
+
+@robertklep: Nope, not at all. I'd have posted it below if I felt like it. :-) – 
+user1106925
+ Jan 1, 2016 at 16:48
+Add a comment
+Start a bounty
+2 Answers
+Sorted by:
+
+Highest score (default)
+
+23
+
+You could use a reviver function that checks if an object looks like a stringified Buffer, and create a proper instance from it:
+
+var parse = JSON.parse(stringify, (k, v) => {
+  if (
+    v !== null            &&
+    typeof v === 'object' && 
+    'type' in v           &&
+    v.type === 'Buffer'   &&
+    'data' in v           &&
+    Array.isArray(v.data)) {
+    return new Buffer(v.data);
+  }
+  return v;
+});
+Share
+Edit
+Follow
+Flag
+edited Jan 1, 2016 at 17:03
+answered Jan 1, 2016 at 16:47
+robertklep's user avatar
+robertklep
+191k3333 gold badges378378 silver badges365365 bronze badges
+
+Just curious, where are type and data coming from? – 
+user1106925
+ Jan 1, 2016 at 16:50
+
+@squint those are the properties of the object that a Buffer gets stringified to. – 
+robertklep
+ Jan 1, 2016 at 16:51
+
+I don't get those properties when I stringify a Buffer. Are you sure? – 
+user1106925
+ Jan 1, 2016 at 16:52
+
+@squint JSON.stringify(new Buffer('foo')) -> {"type":"Buffer","data":[102,111,111]} (Node v4.2.1) – 
+robertklep
+ Jan 1, 2016 at 16:53
+
+@robertklep, Just a note, this fails with null values. Since typeof null is "object". Try this with { "foo": null } and you get errors (because you can't enumerate over a null). – 
+user3117575
+ Jan 1, 2016 at 16:53 
+Add a comment  |  Show 7 more comments
+
+5
+
+Since JSON serializes Buffers to:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+You can just check the type and reinitialize a buffer:
+
+if (source.buf.type === 'Buffer') {
+  source.buf = new Buffer(source.buf.data);
+}
+Share
+Edit
+Follow
+Flag
+answered Jan 1, 2016 at 16:41
+user3117575
+1
+
+I'm sure he knows how to create a buffer. He's asking how to have it parsed to a Buffer automatically. "...I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution..." – 
+user1106925
+ Jan 1, 2016 at 16:44 
+2
+
+And he probably doesn't have the source. I really doubt he's actually doing a stringify immediately followed by a parse. – 
+user1106925
+ Jan 1, 2016 at 16:47
+
+@squint Whoops, should have read more closely. Robertklep's answer does the job then. – 
+user3117575
+ Jan 1, 2016 at 16:50
+Add a comment
+Your Answer
+
+
+Community wiki
+Not the answer you're looking for? Browse other questions tagged javascriptjsonnode.js or ask your own question.
+The Overflow Blog
+Hypergrowth headaches (Ep. 485)
+I spent two years trying to do what Backstage does for free
+Featured on Meta
+Planned maintenance scheduled for Wednesday, 21 September, 00:30-03:00 UTC...
+Recent Color Contrast Changes and Accessibility Updates
+Should I explain other people's code-only answers?
+Reviewer overboard! Or a request to improve the onboarding guidance for new...
+Hot Meta Posts
+5
+Are pastebin links acceptable in comments?
+11
+What happens to existing suggested edits when you roll past 2000 reputation?
+Related
+5015
+How do I create a GUID / UUID?
+7623
+How do JavaScript closures work?
+8444
+How do I check if an element is hidden in jQuery?
+7707
+How do I redirect to another webpage?
+5899
+What is the difference between "let" and "var"?
+6061
+How do I include a JavaScript file in another JavaScript file?
+7413
+How to check whether a string contains a substring in JavaScript?
+3146
+pretty-print JSON using JavaScript
+10940
+How can I remove a specific item from an array?
+6440
+How do I return the response from an asynchronous call?
+Hot Network Questions
+How to write a fully-expandable string slice in LaTeX3
+Why Is Capacitance Not Measured in Coulombs?
+What's the meaning of `weightLimit: Unlimited` in `BuyExecution`?
+How can I have <C-E> and <C-Y>'s normal mode functionalities also work in insert mode?
+Is mathematics politically and culturally neutral?
+Are push tokens considered PII under the GDPR or the CCPA?
+Is photon spin and polarization the same thing?
+Is it appropriate to bring a player character back after they had been "killed"?
+Was it a King or a Queen or neither?
+How do I call something trash in French?
+Compute the Fabius Function
+Remove single echo from audio signal
+What are some good blogs for Mathematical Statistics and Machine Learning?
+Why would installing a 486DX2 make the system freeze for minutes on boot?
+Why do balloons no longer have nets?
+Can you have a very cold swamp?
+Add an item to a list of piped items
+Issue with ConjugateTranspose[..]
+UK Can my company order me to join a social event?
+Travelling to Nebraska USA from the UK., I’m staying 3 weeks with a friend, my budget is super tight, will I get sent home?
+Tips on where to buy clothes for cold weather in Lille, France?
+Novel about a family with anti-aging technology, including former astronauts
+Robust way to resolve a DNS address in a script (IPv4 (A) and IPv6 (AAAA))?
+Can anyone give a valid argument against running sprinkler wire in 1/2" pvc water line?
+ Question feed
+
+STACK OVERFLOW
+Questions
+Help
+PRODUCTS
+Teams
+Advertising
+Collectives
+Talent
+COMPANY
+About
+Press
+Work Here
+Legal
+Privacy Policy
+Terms of Service
+Contact Us
+Cookie Settings
+Cookie Policy
+STACK EXCHANGE NETWORK
+Technology
+Culture & recreation
+Life & arts
+Science
+Professional
+Business
+API
+Data
+Blog
+Facebook
+Twitter
+LinkedIn
+Instagram
+Site design / logo © 2022 Stack Exchange Inc; user contributions licensed under CC BY-SA. rev 2022.9.16.42980
+Tags
+Users
+Companies
+COLLECTIVES
+Explore Collectives
+TEAMS
+Create free Team
+How to deserialize a nested Buffer using JSON.parse
+Asked 6 years, 8 months ago
+Modified 6 years, 8 months ago
+Viewed 9k times
+
+7
+
+
+2
+I am trying to serialise and deserialise an object which contains multiple Buffers, however deserialising the resulting string from JSON.stringify() with JSON.parse() fails to correctly re-create the Buffers.
+
+var b64 = 'Jw8mm8h+agVwgI/yN1egchSax0WLWXSEVP0umVvv5zM='; 
+var buf = new Buffer(b64, 'base64');
+
+var source = {
+    a: {
+        buffer: buf
+    }
+};
+
+var stringify = JSON.stringify(source);
+var parse = JSON.parse(stringify);
+
+console.log("source: "+source.a.buffer.constructor.name);
+console.log("parse: "+parse.a.buffer.constructor.name);
+Gives the ouput:
+
+source: Buffer
+parse: Object
+This makes sense since the output from Buffer.toJSON() creates a simple object like so:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+I guess I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution using JSON.parse() that I am missing.
+
+javascriptjsonnode.js
+Share
+Edit
+Follow
+Flag
+edited Jan 5, 2016 at 16:02
+asked Jan 1, 2016 at 16:34
+GeekyDeaks's user avatar
+GeekyDeaks
+63066 silver badges1212 bronze badges
+1
+
+No, there's nothing more elegant. The only structured data types that JSON supports are objects and arrays. JSON.parse doesn't know anything about Buffer. The Buffer.toJSON method is simply translating the buffer into something that JSON.parse can understand. – 
+Barmar
+ Jan 1, 2016 at 16:39
+2
+
+You can pass a "reviver" function to JSON.parse in order to avoid the manual traversal. When you find the buffer property, you'll take the value and manually create and return your Buffer. – 
+user1106925
+ Jan 1, 2016 at 16:40 
+
+@squint we thought the same thing, sorry if I "stole" your answer :-) – 
+robertklep
+ Jan 1, 2016 at 16:48
+
+@robertklep: Nope, not at all. I'd have posted it below if I felt like it. :-) – 
+user1106925
+ Jan 1, 2016 at 16:48
+Add a comment
+Start a bounty
+2 Answers
+Sorted by:
+
+Highest score (default)
+
+23
+
+You could use a reviver function that checks if an object looks like a stringified Buffer, and create a proper instance from it:
+
+var parse = JSON.parse(stringify, (k, v) => {
+  if (
+    v !== null            &&
+    typeof v === 'object' && 
+    'type' in v           &&
+    v.type === 'Buffer'   &&
+    'data' in v           &&
+    Array.isArray(v.data)) {
+    return new Buffer(v.data);
+  }
+  return v;
+});
+Share
+Edit
+Follow
+Flag
+edited Jan 1, 2016 at 17:03
+answered Jan 1, 2016 at 16:47
+robertklep's user avatar
+robertklep
+191k3333 gold badges378378 silver badges365365 bronze badges
+
+Just curious, where are type and data coming from? – 
+user1106925
+ Jan 1, 2016 at 16:50
+
+@squint those are the properties of the object that a Buffer gets stringified to. – 
+robertklep
+ Jan 1, 2016 at 16:51
+
+I don't get those properties when I stringify a Buffer. Are you sure? – 
+user1106925
+ Jan 1, 2016 at 16:52
+
+@squint JSON.stringify(new Buffer('foo')) -> {"type":"Buffer","data":[102,111,111]} (Node v4.2.1) – 
+robertklep
+ Jan 1, 2016 at 16:53
+
+@robertklep, Just a note, this fails with null values. Since typeof null is "object". Try this with { "foo": null } and you get errors (because you can't enumerate over a null). – 
+user3117575
+ Jan 1, 2016 at 16:53 
+Add a comment  |  Show 7 more comments
+
+5
+
+Since JSON serializes Buffers to:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+You can just check the type and reinitialize a buffer:
+
+if (source.buf.type === 'Buffer') {
+  source.buf = new Buffer(source.buf.data);
+}
+Share
+Edit
+Follow
+Flag
+answered Jan 1, 2016 at 16:41
+user3117575
+1
+
+I'm sure he knows how to create a buffer. He's asking how to have it parsed to a Buffer automatically. "...I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution..." – 
+user1106925
+ Jan 1, 2016 at 16:44 
+2
+
+And he probably doesn't have the source. I really doubt he's actually doing a stringify immediately followed by a parse. – 
+user1106925
+ Jan 1, 2016 at 16:47
+
+@squint Whoops, should have read more closely. Robertklep's answer does the job then. – 
+user3117575
+ Jan 1, 2016 at 16:50
+Add a comment
+Your Answer
+
+
+Community wiki
+Not the answer you're looking for? Browse other questions tagged javascriptjsonnode.js or ask your own question.
+The Overflow Blog
+Hypergrowth headaches (Ep. 485)
+I spent two years trying to do what Backstage does for free
+Featured on Meta
+Planned maintenance scheduled for Wednesday, 21 September, 00:30-03:00 UTC...
+Recent Color Contrast Changes and Accessibility Updates
+Should I explain other people's code-only answers?
+Reviewer overboard! Or a request to improve the onboarding guidance for new...
+Hot Meta Posts
+5
+Are pastebin links acceptable in comments?
+11
+What happens to existing suggested edits when you roll past 2000 reputation?
+Related
+5015
+How do I create a GUID / UUID?
+7623
+How do JavaScript closures work?
+8444
+How do I check if an element is hidden in jQuery?
+7707
+How do I redirect to another webpage?
+5899
+What is the difference between "let" and "var"?
+6061
+How do I include a JavaScript file in another JavaScript file?
+7413
+How to check whether a string contains a substring in JavaScript?
+3146
+pretty-print JSON using JavaScript
+10940
+How can I remove a specific item from an array?
+6440
+How do I return the response from an asynchronous call?
+Hot Network Questions
+How to write a fully-expandable string slice in LaTeX3
+Why Is Capacitance Not Measured in Coulombs?
+What's the meaning of `weightLimit: Unlimited` in `BuyExecution`?
+How can I have <C-E> and <C-Y>'s normal mode functionalities also work in insert mode?
+Is mathematics politically and culturally neutral?
+Are push tokens considered PII under the GDPR or the CCPA?
+Is photon spin and polarization the same thing?
+Is it appropriate to bring a player character back after they had been "killed"?
+Was it a King or a Queen or neither?
+How do I call something trash in French?
+Compute the Fabius Function
+Remove single echo from audio signal
+What are some good blogs for Mathematical Statistics and Machine Learning?
+Why would installing a 486DX2 make the system freeze for minutes on boot?
+Why do balloons no longer have nets?
+Can you have a very cold swamp?
+Add an item to a list of piped items
+Issue with ConjugateTranspose[..]
+UK Can my company order me to join a social event?
+Travelling to Nebraska USA from the UK., I’m staying 3 weeks with a friend, my budget is super tight, will I get sent home?
+Tips on where to buy clothes for cold weather in Lille, France?
+Novel about a family with anti-aging technology, including former astronauts
+Robust way to resolve a DNS address in a script (IPv4 (A) and IPv6 (AAAA))?
+Can anyone give a valid argument against running sprinkler wire in 1/2" pvc water line?
+ Question feed
+
+STACK OVERFLOW
+Questions
+Help
+PRODUCTS
+Teams
+Advertising
+Collectives
+Talent
+COMPANY
+About
+Press
+Work Here
+Legal
+Privacy Policy
+Terms of Service
+Contact Us
+Cookie Settings
+Cookie Policy
+STACK EXCHANGE NETWORK
+Technology
+Culture & recreation
+Life & arts
+Science
+Professional
+Business
+API
+Data
+Blog
+Facebook
+Twitter
+LinkedIn
+Instagram
+Site design / logo © 2022 Stack Exchange Inc; user contributions licensed under CC BY-SA. rev 2022.9.16.42980
+Tags
+Users
+Companies
+COLLECTIVES
+Explore Collectives
+TEAMS
+Create free Team
+How to deserialize a nested Buffer using JSON.parse
+Asked 6 years, 8 months ago
+Modified 6 years, 8 months ago
+Viewed 9k times
+
+7
+
+
+2
+I am trying to serialise and deserialise an object which contains multiple Buffers, however deserialising the resulting string from JSON.stringify() with JSON.parse() fails to correctly re-create the Buffers.
+
+var b64 = 'Jw8mm8h+agVwgI/yN1egchSax0WLWXSEVP0umVvv5zM='; 
+var buf = new Buffer(b64, 'base64');
+
+var source = {
+    a: {
+        buffer: buf
+    }
+};
+
+var stringify = JSON.stringify(source);
+var parse = JSON.parse(stringify);
+
+console.log("source: "+source.a.buffer.constructor.name);
+console.log("parse: "+parse.a.buffer.constructor.name);
+Gives the ouput:
+
+source: Buffer
+parse: Object
+This makes sense since the output from Buffer.toJSON() creates a simple object like so:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+I guess I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution using JSON.parse() that I am missing.
+
+javascriptjsonnode.js
+Share
+Edit
+Follow
+Flag
+edited Jan 5, 2016 at 16:02
+asked Jan 1, 2016 at 16:34
+GeekyDeaks's user avatar
+GeekyDeaks
+63066 silver badges1212 bronze badges
+1
+
+No, there's nothing more elegant. The only structured data types that JSON supports are objects and arrays. JSON.parse doesn't know anything about Buffer. The Buffer.toJSON method is simply translating the buffer into something that JSON.parse can understand. – 
+Barmar
+ Jan 1, 2016 at 16:39
+2
+
+You can pass a "reviver" function to JSON.parse in order to avoid the manual traversal. When you find the buffer property, you'll take the value and manually create and return your Buffer. – 
+user1106925
+ Jan 1, 2016 at 16:40 
+
+@squint we thought the same thing, sorry if I "stole" your answer :-) – 
+robertklep
+ Jan 1, 2016 at 16:48
+
+@robertklep: Nope, not at all. I'd have posted it below if I felt like it. :-) – 
+user1106925
+ Jan 1, 2016 at 16:48
+Add a comment
+Start a bounty
+2 Answers
+Sorted by:
+
+Highest score (default)
+
+23
+
+You could use a reviver function that checks if an object looks like a stringified Buffer, and create a proper instance from it:
+
+var parse = JSON.parse(stringify, (k, v) => {
+  if (
+    v !== null            &&
+    typeof v === 'object' && 
+    'type' in v           &&
+    v.type === 'Buffer'   &&
+    'data' in v           &&
+    Array.isArray(v.data)) {
+    return new Buffer(v.data);
+  }
+  return v;
+});
+Share
+Edit
+Follow
+Flag
+edited Jan 1, 2016 at 17:03
+answered Jan 1, 2016 at 16:47
+robertklep's user avatar
+robertklep
+191k3333 gold badges378378 silver badges365365 bronze badges
+
+Just curious, where are type and data coming from? – 
+user1106925
+ Jan 1, 2016 at 16:50
+
+@squint those are the properties of the object that a Buffer gets stringified to. – 
+robertklep
+ Jan 1, 2016 at 16:51
+
+I don't get those properties when I stringify a Buffer. Are you sure? – 
+user1106925
+ Jan 1, 2016 at 16:52
+
+@squint JSON.stringify(new Buffer('foo')) -> {"type":"Buffer","data":[102,111,111]} (Node v4.2.1) – 
+robertklep
+ Jan 1, 2016 at 16:53
+
+@robertklep, Just a note, this fails with null values. Since typeof null is "object". Try this with { "foo": null } and you get errors (because you can't enumerate over a null). – 
+user3117575
+ Jan 1, 2016 at 16:53 
+Add a comment  |  Show 7 more comments
+
+5
+
+Since JSON serializes Buffers to:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+You can just check the type and reinitialize a buffer:
+
+if (source.buf.type === 'Buffer') {
+  source.buf = new Buffer(source.buf.data);
+}
+Share
+Edit
+Follow
+Flag
+answered Jan 1, 2016 at 16:41
+user3117575
+1
+
+I'm sure he knows how to create a buffer. He's asking how to have it parsed to a Buffer automatically. "...I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution..." – 
+user1106925
+ Jan 1, 2016 at 16:44 
+2
+
+And he probably doesn't have the source. I really doubt he's actually doing a stringify immediately followed by a parse. – 
+user1106925
+ Jan 1, 2016 at 16:47
+
+@squint Whoops, should have read more closely. Robertklep's answer does the job then. – 
+user3117575
+ Jan 1, 2016 at 16:50
+Add a comment
+Your Answer
+
+
+Community wiki
+Not the answer you're looking for? Browse other questions tagged javascriptjsonnode.js or ask your own question.
+The Overflow Blog
+Hypergrowth headaches (Ep. 485)
+I spent two years trying to do what Backstage does for free
+Featured on Meta
+Planned maintenance scheduled for Wednesday, 21 September, 00:30-03:00 UTC...
+Recent Color Contrast Changes and Accessibility Updates
+Should I explain other people's code-only answers?
+Reviewer overboard! Or a request to improve the onboarding guidance for new...
+Hot Meta Posts
+5
+Are pastebin links acceptable in comments?
+11
+What happens to existing suggested edits when you roll past 2000 reputation?
+Related
+5015
+How do I create a GUID / UUID?
+7623
+How do JavaScript closures work?
+8444
+How do I check if an element is hidden in jQuery?
+7707
+How do I redirect to another webpage?
+5899
+What is the difference between "let" and "var"?
+6061
+How do I include a JavaScript file in another JavaScript file?
+7413
+How to check whether a string contains a substring in JavaScript?
+3146
+pretty-print JSON using JavaScript
+10940
+How can I remove a specific item from an array?
+6440
+How do I return the response from an asynchronous call?
+Hot Network Questions
+How to write a fully-expandable string slice in LaTeX3
+Why Is Capacitance Not Measured in Coulombs?
+What's the meaning of `weightLimit: Unlimited` in `BuyExecution`?
+How can I have <C-E> and <C-Y>'s normal mode functionalities also work in insert mode?
+Is mathematics politically and culturally neutral?
+Are push tokens considered PII under the GDPR or the CCPA?
+Is photon spin and polarization the same thing?
+Is it appropriate to bring a player character back after they had been "killed"?
+Was it a King or a Queen or neither?
+How do I call something trash in French?
+Compute the Fabius Function
+Remove single echo from audio signal
+What are some good blogs for Mathematical Statistics and Machine Learning?
+Why would installing a 486DX2 make the system freeze for minutes on boot?
+Why do balloons no longer have nets?
+Can you have a very cold swamp?
+Add an item to a list of piped items
+Issue with ConjugateTranspose[..]
+UK Can my company order me to join a social event?
+Travelling to Nebraska USA from the UK., I’m staying 3 weeks with a friend, my budget is super tight, will I get sent home?
+Tips on where to buy clothes for cold weather in Lille, France?
+Novel about a family with anti-aging technology, including former astronauts
+Robust way to resolve a DNS address in a script (IPv4 (A) and IPv6 (AAAA))?
+Can anyone give a valid argument against running sprinkler wire in 1/2" pvc water line?
+ Question feed
+
+STACK OVERFLOW
+Questions
+Help
+PRODUCTS
+Teams
+Advertising
+Collectives
+Talent
+COMPANY
+About
+Press
+Work Here
+Legal
+Privacy Policy
+Terms of Service
+Contact Us
+Cookie Settings
+Cookie Policy
+STACK EXCHANGE NETWORK
+Technology
+Culture & recreation
+Life & arts
+Science
+Professional
+Business
+API
+Data
+Blog
+Facebook
+Twitter
+LinkedIn
+Instagram
+Site design / logo © 2022 Stack Exchange Inc; user contributions licensed under CC BY-SA. rev 2022.9.16.42980
+Tags
+Users
+Companies
+COLLECTIVES
+Explore Collectives
+TEAMS
+Create free Team
+How to deserialize a nested Buffer using JSON.parse
+Asked 6 years, 8 months ago
+Modified 6 years, 8 months ago
+Viewed 9k times
+
+7
+
+
+2
+I am trying to serialise and deserialise an object which contains multiple Buffers, however deserialising the resulting string from JSON.stringify() with JSON.parse() fails to correctly re-create the Buffers.
+
+var b64 = 'Jw8mm8h+agVwgI/yN1egchSax0WLWXSEVP0umVvv5zM='; 
+var buf = new Buffer(b64, 'base64');
+
+var source = {
+    a: {
+        buffer: buf
+    }
+};
+
+var stringify = JSON.stringify(source);
+var parse = JSON.parse(stringify);
+
+console.log("source: "+source.a.buffer.constructor.name);
+console.log("parse: "+parse.a.buffer.constructor.name);
+Gives the ouput:
+
+source: Buffer
+parse: Object
+This makes sense since the output from Buffer.toJSON() creates a simple object like so:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+I guess I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution using JSON.parse() that I am missing.
+
+javascriptjsonnode.js
+Share
+Edit
+Follow
+Flag
+edited Jan 5, 2016 at 16:02
+asked Jan 1, 2016 at 16:34
+GeekyDeaks's user avatar
+GeekyDeaks
+63066 silver badges1212 bronze badges
+1
+
+No, there's nothing more elegant. The only structured data types that JSON supports are objects and arrays. JSON.parse doesn't know anything about Buffer. The Buffer.toJSON method is simply translating the buffer into something that JSON.parse can understand. – 
+Barmar
+ Jan 1, 2016 at 16:39
+2
+
+You can pass a "reviver" function to JSON.parse in order to avoid the manual traversal. When you find the buffer property, you'll take the value and manually create and return your Buffer. – 
+user1106925
+ Jan 1, 2016 at 16:40 
+
+@squint we thought the same thing, sorry if I "stole" your answer :-) – 
+robertklep
+ Jan 1, 2016 at 16:48
+
+@robertklep: Nope, not at all. I'd have posted it below if I felt like it. :-) – 
+user1106925
+ Jan 1, 2016 at 16:48
+Add a comment
+Start a bounty
+2 Answers
+Sorted by:
+
+Highest score (default)
+
+23
+
+You could use a reviver function that checks if an object looks like a stringified Buffer, and create a proper instance from it:
+
+var parse = JSON.parse(stringify, (k, v) => {
+  if (
+    v !== null            &&
+    typeof v === 'object' && 
+    'type' in v           &&
+    v.type === 'Buffer'   &&
+    'data' in v           &&
+    Array.isArray(v.data)) {
+    return new Buffer(v.data);
+  }
+  return v;
+});
+Share
+Edit
+Follow
+Flag
+edited Jan 1, 2016 at 17:03
+answered Jan 1, 2016 at 16:47
+robertklep's user avatar
+robertklep
+191k3333 gold badges378378 silver badges365365 bronze badges
+
+Just curious, where are type and data coming from? – 
+user1106925
+ Jan 1, 2016 at 16:50
+
+@squint those are the properties of the object that a Buffer gets stringified to. – 
+robertklep
+ Jan 1, 2016 at 16:51
+
+I don't get those properties when I stringify a Buffer. Are you sure? – 
+user1106925
+ Jan 1, 2016 at 16:52
+
+@squint JSON.stringify(new Buffer('foo')) -> {"type":"Buffer","data":[102,111,111]} (Node v4.2.1) – 
+robertklep
+ Jan 1, 2016 at 16:53
+
+@robertklep, Just a note, this fails with null values. Since typeof null is "object". Try this with { "foo": null } and you get errors (because you can't enumerate over a null). – 
+user3117575
+ Jan 1, 2016 at 16:53 
+Add a comment  |  Show 7 more comments
+
+5
+
+Since JSON serializes Buffers to:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+You can just check the type and reinitialize a buffer:
+
+if (source.buf.type === 'Buffer') {
+  source.buf = new Buffer(source.buf.data);
+}
+Share
+Edit
+Follow
+Flag
+answered Jan 1, 2016 at 16:41
+user3117575
+1
+
+I'm sure he knows how to create a buffer. He's asking how to have it parsed to a Buffer automatically. "...I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution..." – 
+user1106925
+ Jan 1, 2016 at 16:44 
+2
+
+And he probably doesn't have the source. I really doubt he's actually doing a stringify immediately followed by a parse. – 
+user1106925
+ Jan 1, 2016 at 16:47
+
+@squint Whoops, should have read more closely. Robertklep's answer does the job then. – 
+user3117575
+ Jan 1, 2016 at 16:50
+Add a comment
+Your Answer
+
+
+Community wiki
+Not the answer you're looking for? Browse other questions tagged javascriptjsonnode.js or ask your own question.
+The Overflow Blog
+Hypergrowth headaches (Ep. 485)
+I spent two years trying to do what Backstage does for free
+Featured on Meta
+Planned maintenance scheduled for Wednesday, 21 September, 00:30-03:00 UTC...
+Recent Color Contrast Changes and Accessibility Updates
+Should I explain other people's code-only answers?
+Reviewer overboard! Or a request to improve the onboarding guidance for new...
+Hot Meta Posts
+5
+Are pastebin links acceptable in comments?
+11
+What happens to existing suggested edits when you roll past 2000 reputation?
+Related
+5015
+How do I create a GUID / UUID?
+7623
+How do JavaScript closures work?
+8444
+How do I check if an element is hidden in jQuery?
+7707
+How do I redirect to another webpage?
+5899
+What is the difference between "let" and "var"?
+6061
+How do I include a JavaScript file in another JavaScript file?
+7413
+How to check whether a string contains a substring in JavaScript?
+3146
+pretty-print JSON using JavaScript
+10940
+How can I remove a specific item from an array?
+6440
+How do I return the response from an asynchronous call?
+Hot Network Questions
+How to write a fully-expandable string slice in LaTeX3
+Why Is Capacitance Not Measured in Coulombs?
+What's the meaning of `weightLimit: Unlimited` in `BuyExecution`?
+How can I have <C-E> and <C-Y>'s normal mode functionalities also work in insert mode?
+Is mathematics politically and culturally neutral?
+Are push tokens considered PII under the GDPR or the CCPA?
+Is photon spin and polarization the same thing?
+Is it appropriate to bring a player character back after they had been "killed"?
+Was it a King or a Queen or neither?
+How do I call something trash in French?
+Compute the Fabius Function
+Remove single echo from audio signal
+What are some good blogs for Mathematical Statistics and Machine Learning?
+Why would installing a 486DX2 make the system freeze for minutes on boot?
+Why do balloons no longer have nets?
+Can you have a very cold swamp?
+Add an item to a list of piped items
+Issue with ConjugateTranspose[..]
+UK Can my company order me to join a social event?
+Travelling to Nebraska USA from the UK., I’m staying 3 weeks with a friend, my budget is super tight, will I get sent home?
+Tips on where to buy clothes for cold weather in Lille, France?
+Novel about a family with anti-aging technology, including former astronauts
+Robust way to resolve a DNS address in a script (IPv4 (A) and IPv6 (AAAA))?
+Can anyone give a valid argument against running sprinkler wire in 1/2" pvc water line?
+ Question feed
+
+STACK OVERFLOW
+Questions
+Help
+PRODUCTS
+Teams
+Advertising
+Collectives
+Talent
+COMPANY
+About
+Press
+Work Here
+Legal
+Privacy Policy
+Terms of Service
+Contact Us
+Cookie Settings
+Cookie Policy
+STACK EXCHANGE NETWORK
+Technology
+Culture & recreation
+Life & arts
+Science
+Professional
+Business
+API
+Data
+Blog
+Facebook
+Twitter
+LinkedIn
+Instagram
+Site design / logo © 2022 Stack Exchange Inc; user contributions licensed under CC BY-SA. rev 2022.9.16.42980
+Tags
+Users
+Companies
+COLLECTIVES
+Explore Collectives
+TEAMS
+Create free Team
+How to deserialize a nested Buffer using JSON.parse
+Asked 6 years, 8 months ago
+Modified 6 years, 8 months ago
+Viewed 9k times
+
+7
+
+
+2
+I am trying to serialise and deserialise an object which contains multiple Buffers, however deserialising the resulting string from JSON.stringify() with JSON.parse() fails to correctly re-create the Buffers.
+
+var b64 = 'Jw8mm8h+agVwgI/yN1egchSax0WLWXSEVP0umVvv5zM='; 
+var buf = new Buffer(b64, 'base64');
+
+var source = {
+    a: {
+        buffer: buf
+    }
+};
+
+var stringify = JSON.stringify(source);
+var parse = JSON.parse(stringify);
+
+console.log("source: "+source.a.buffer.constructor.name);
+console.log("parse: "+parse.a.buffer.constructor.name);
+Gives the ouput:
+
+source: Buffer
+parse: Object
+This makes sense since the output from Buffer.toJSON() creates a simple object like so:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+I guess I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution using JSON.parse() that I am missing.
+
+javascriptjsonnode.js
+Share
+Edit
+Follow
+Flag
+edited Jan 5, 2016 at 16:02
+asked Jan 1, 2016 at 16:34
+GeekyDeaks's user avatar
+GeekyDeaks
+63066 silver badges1212 bronze badges
+1
+
+No, there's nothing more elegant. The only structured data types that JSON supports are objects and arrays. JSON.parse doesn't know anything about Buffer. The Buffer.toJSON method is simply translating the buffer into something that JSON.parse can understand. – 
+Barmar
+ Jan 1, 2016 at 16:39
+2
+
+You can pass a "reviver" function to JSON.parse in order to avoid the manual traversal. When you find the buffer property, you'll take the value and manually create and return your Buffer. – 
+user1106925
+ Jan 1, 2016 at 16:40 
+
+@squint we thought the same thing, sorry if I "stole" your answer :-) – 
+robertklep
+ Jan 1, 2016 at 16:48
+
+@robertklep: Nope, not at all. I'd have posted it below if I felt like it. :-) – 
+user1106925
+ Jan 1, 2016 at 16:48
+Add a comment
+Start a bounty
+2 Answers
+Sorted by:
+
+Highest score (default)
+
+23
+
+You could use a reviver function that checks if an object looks like a stringified Buffer, and create a proper instance from it:
+
+var parse = JSON.parse(stringify, (k, v) => {
+  if (
+    v !== null            &&
+    typeof v === 'object' && 
+    'type' in v           &&
+    v.type === 'Buffer'   &&
+    'data' in v           &&
+    Array.isArray(v.data)) {
+    return new Buffer(v.data);
+  }
+  return v;
+});
+Share
+Edit
+Follow
+Flag
+edited Jan 1, 2016 at 17:03
+answered Jan 1, 2016 at 16:47
+robertklep's user avatar
+robertklep
+191k3333 gold badges378378 silver badges365365 bronze badges
+
+Just curious, where are type and data coming from? – 
+user1106925
+ Jan 1, 2016 at 16:50
+
+@squint those are the properties of the object that a Buffer gets stringified to. – 
+robertklep
+ Jan 1, 2016 at 16:51
+
+I don't get those properties when I stringify a Buffer. Are you sure? – 
+user1106925
+ Jan 1, 2016 at 16:52
+
+@squint JSON.stringify(new Buffer('foo')) -> {"type":"Buffer","data":[102,111,111]} (Node v4.2.1) – 
+robertklep
+ Jan 1, 2016 at 16:53
+
+@robertklep, Just a note, this fails with null values. Since typeof null is "object". Try this with { "foo": null } and you get errors (because you can't enumerate over a null). – 
+user3117575
+ Jan 1, 2016 at 16:53 
+Add a comment  |  Show 7 more comments
+
+5
+
+Since JSON serializes Buffers to:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+You can just check the type and reinitialize a buffer:
+
+if (source.buf.type === 'Buffer') {
+  source.buf = new Buffer(source.buf.data);
+}
+Share
+Edit
+Follow
+Flag
+answered Jan 1, 2016 at 16:41
+user3117575
+1
+
+I'm sure he knows how to create a buffer. He's asking how to have it parsed to a Buffer automatically. "...I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution..." – 
+user1106925
+ Jan 1, 2016 at 16:44 
+2
+
+And he probably doesn't have the source. I really doubt he's actually doing a stringify immediately followed by a parse. – 
+user1106925
+ Jan 1, 2016 at 16:47
+
+@squint Whoops, should have read more closely. Robertklep's answer does the job then. – 
+user3117575
+ Jan 1, 2016 at 16:50
+Add a comment
+Your Answer
+
+
+Community wiki
+Not the answer you're looking for? Browse other questions tagged javascriptjsonnode.js or ask your own question.
+The Overflow Blog
+Hypergrowth headaches (Ep. 485)
+I spent two years trying to do what Backstage does for free
+Featured on Meta
+Planned maintenance scheduled for Wednesday, 21 September, 00:30-03:00 UTC...
+Recent Color Contrast Changes and Accessibility Updates
+Should I explain other people's code-only answers?
+Reviewer overboard! Or a request to improve the onboarding guidance for new...
+Hot Meta Posts
+5
+Are pastebin links acceptable in comments?
+11
+What happens to existing suggested edits when you roll past 2000 reputation?
+Related
+5015
+How do I create a GUID / UUID?
+7623
+How do JavaScript closures work?
+8444
+How do I check if an element is hidden in jQuery?
+7707
+How do I redirect to another webpage?
+5899
+What is the difference between "let" and "var"?
+6061
+How do I include a JavaScript file in another JavaScript file?
+7413
+How to check whether a string contains a substring in JavaScript?
+3146
+pretty-print JSON using JavaScript
+10940
+How can I remove a specific item from an array?
+6440
+How do I return the response from an asynchronous call?
+Hot Network Questions
+How to write a fully-expandable string slice in LaTeX3
+Why Is Capacitance Not Measured in Coulombs?
+What's the meaning of `weightLimit: Unlimited` in `BuyExecution`?
+How can I have <C-E> and <C-Y>'s normal mode functionalities also work in insert mode?
+Is mathematics politically and culturally neutral?
+Are push tokens considered PII under the GDPR or the CCPA?
+Is photon spin and polarization the same thing?
+Is it appropriate to bring a player character back after they had been "killed"?
+Was it a King or a Queen or neither?
+How do I call something trash in French?
+Compute the Fabius Function
+Remove single echo from audio signal
+What are some good blogs for Mathematical Statistics and Machine Learning?
+Why would installing a 486DX2 make the system freeze for minutes on boot?
+Why do balloons no longer have nets?
+Can you have a very cold swamp?
+Add an item to a list of piped items
+Issue with ConjugateTranspose[..]
+UK Can my company order me to join a social event?
+Travelling to Nebraska USA from the UK., I’m staying 3 weeks with a friend, my budget is super tight, will I get sent home?
+Tips on where to buy clothes for cold weather in Lille, France?
+Novel about a family with anti-aging technology, including former astronauts
+Robust way to resolve a DNS address in a script (IPv4 (A) and IPv6 (AAAA))?
+Can anyone give a valid argument against running sprinkler wire in 1/2" pvc water line?
+ Question feed
+
+STACK OVERFLOW
+Questions
+Help
+PRODUCTS
+Teams
+Advertising
+Collectives
+Talent
+COMPANY
+About
+Press
+Work Here
+Legal
+Privacy Policy
+Terms of Service
+Contact Us
+Cookie Settings
+Cookie Policy
+STACK EXCHANGE NETWORK
+Technology
+Culture & recreation
+Life & arts
+Science
+Professional
+Business
+API
+Data
+Blog
+Facebook
+Twitter
+LinkedIn
+Instagram
+Site design / logo © 2022 Stack Exchange Inc; user contributions licensed under CC BY-SA. rev 2022.9.16.42980
+Tags
+Users
+Companies
+COLLECTIVES
+Explore Collectives
+TEAMS
+Create free Team
+How to deserialize a nested Buffer using JSON.parse
+Asked 6 years, 8 months ago
+Modified 6 years, 8 months ago
+Viewed 9k times
+
+7
+
+
+2
+I am trying to serialise and deserialise an object which contains multiple Buffers, however deserialising the resulting string from JSON.stringify() with JSON.parse() fails to correctly re-create the Buffers.
+
+var b64 = 'Jw8mm8h+agVwgI/yN1egchSax0WLWXSEVP0umVvv5zM='; 
+var buf = new Buffer(b64, 'base64');
+
+var source = {
+    a: {
+        buffer: buf
+    }
+};
+
+var stringify = JSON.stringify(source);
+var parse = JSON.parse(stringify);
+
+console.log("source: "+source.a.buffer.constructor.name);
+console.log("parse: "+parse.a.buffer.constructor.name);
+Gives the ouput:
+
+source: Buffer
+parse: Object
+This makes sense since the output from Buffer.toJSON() creates a simple object like so:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+I guess I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution using JSON.parse() that I am missing.
+
+javascriptjsonnode.js
+Share
+Edit
+Follow
+Flag
+edited Jan 5, 2016 at 16:02
+asked Jan 1, 2016 at 16:34
+GeekyDeaks's user avatar
+GeekyDeaks
+63066 silver badges1212 bronze badges
+1
+
+No, there's nothing more elegant. The only structured data types that JSON supports are objects and arrays. JSON.parse doesn't know anything about Buffer. The Buffer.toJSON method is simply translating the buffer into something that JSON.parse can understand. – 
+Barmar
+ Jan 1, 2016 at 16:39
+2
+
+You can pass a "reviver" function to JSON.parse in order to avoid the manual traversal. When you find the buffer property, you'll take the value and manually create and return your Buffer. – 
+user1106925
+ Jan 1, 2016 at 16:40 
+
+@squint we thought the same thing, sorry if I "stole" your answer :-) – 
+robertklep
+ Jan 1, 2016 at 16:48
+
+@robertklep: Nope, not at all. I'd have posted it below if I felt like it. :-) – 
+user1106925
+ Jan 1, 2016 at 16:48
+Add a comment
+Start a bounty
+2 Answers
+Sorted by:
+
+Highest score (default)
+
+23
+
+You could use a reviver function that checks if an object looks like a stringified Buffer, and create a proper instance from it:
+
+var parse = JSON.parse(stringify, (k, v) => {
+  if (
+    v !== null            &&
+    typeof v === 'object' && 
+    'type' in v           &&
+    v.type === 'Buffer'   &&
+    'data' in v           &&
+    Array.isArray(v.data)) {
+    return new Buffer(v.data);
+  }
+  return v;
+});
+Share
+Edit
+Follow
+Flag
+edited Jan 1, 2016 at 17:03
+answered Jan 1, 2016 at 16:47
+robertklep's user avatar
+robertklep
+191k3333 gold badges378378 silver badges365365 bronze badges
+
+Just curious, where are type and data coming from? – 
+user1106925
+ Jan 1, 2016 at 16:50
+
+@squint those are the properties of the object that a Buffer gets stringified to. – 
+robertklep
+ Jan 1, 2016 at 16:51
+
+I don't get those properties when I stringify a Buffer. Are you sure? – 
+user1106925
+ Jan 1, 2016 at 16:52
+
+@squint JSON.stringify(new Buffer('foo')) -> {"type":"Buffer","data":[102,111,111]} (Node v4.2.1) – 
+robertklep
+ Jan 1, 2016 at 16:53
+
+@robertklep, Just a note, this fails with null values. Since typeof null is "object". Try this with { "foo": null } and you get errors (because you can't enumerate over a null). – 
+user3117575
+ Jan 1, 2016 at 16:53 
+Add a comment  |  Show 7 more comments
+
+5
+
+Since JSON serializes Buffers to:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+You can just check the type and reinitialize a buffer:
+
+if (source.buf.type === 'Buffer') {
+  source.buf = new Buffer(source.buf.data);
+}
+Share
+Edit
+Follow
+Flag
+answered Jan 1, 2016 at 16:41
+user3117575
+1
+
+I'm sure he knows how to create a buffer. He's asking how to have it parsed to a Buffer automatically. "...I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution..." – 
+user1106925
+ Jan 1, 2016 at 16:44 
+2
+
+And he probably doesn't have the source. I really doubt he's actually doing a stringify immediately followed by a parse. – 
+user1106925
+ Jan 1, 2016 at 16:47
+
+@squint Whoops, should have read more closely. Robertklep's answer does the job then. – 
+user3117575
+ Jan 1, 2016 at 16:50
+Add a comment
+Your Answer
+
+
+Community wiki
+Not the answer you're looking for? Browse other questions tagged javascriptjsonnode.js or ask your own question.
+The Overflow Blog
+Hypergrowth headaches (Ep. 485)
+I spent two years trying to do what Backstage does for free
+Featured on Meta
+Planned maintenance scheduled for Wednesday, 21 September, 00:30-03:00 UTC...
+Recent Color Contrast Changes and Accessibility Updates
+Should I explain other people's code-only answers?
+Reviewer overboard! Or a request to improve the onboarding guidance for new...
+Hot Meta Posts
+5
+Are pastebin links acceptable in comments?
+11
+What happens to existing suggested edits when you roll past 2000 reputation?
+Related
+5015
+How do I create a GUID / UUID?
+7623
+How do JavaScript closures work?
+8444
+How do I check if an element is hidden in jQuery?
+7707
+How do I redirect to another webpage?
+5899
+What is the difference between "let" and "var"?
+6061
+How do I include a JavaScript file in another JavaScript file?
+7413
+How to check whether a string contains a substring in JavaScript?
+3146
+pretty-print JSON using JavaScript
+10940
+How can I remove a specific item from an array?
+6440
+How do I return the response from an asynchronous call?
+Hot Network Questions
+How to write a fully-expandable string slice in LaTeX3
+Why Is Capacitance Not Measured in Coulombs?
+What's the meaning of `weightLimit: Unlimited` in `BuyExecution`?
+How can I have <C-E> and <C-Y>'s normal mode functionalities also work in insert mode?
+Is mathematics politically and culturally neutral?
+Are push tokens considered PII under the GDPR or the CCPA?
+Is photon spin and polarization the same thing?
+Is it appropriate to bring a player character back after they had been "killed"?
+Was it a King or a Queen or neither?
+How do I call something trash in French?
+Compute the Fabius Function
+Remove single echo from audio signal
+What are some good blogs for Mathematical Statistics and Machine Learning?
+Why would installing a 486DX2 make the system freeze for minutes on boot?
+Why do balloons no longer have nets?
+Can you have a very cold swamp?
+Add an item to a list of piped items
+Issue with ConjugateTranspose[..]
+UK Can my company order me to join a social event?
+Travelling to Nebraska USA from the UK., I’m staying 3 weeks with a friend, my budget is super tight, will I get sent home?
+Tips on where to buy clothes for cold weather in Lille, France?
+Novel about a family with anti-aging technology, including former astronauts
+Robust way to resolve a DNS address in a script (IPv4 (A) and IPv6 (AAAA))?
+Can anyone give a valid argument against running sprinkler wire in 1/2" pvc water line?
+ Question feed
+
+STACK OVERFLOW
+Questions
+Help
+PRODUCTS
+Teams
+Advertising
+Collectives
+Talent
+COMPANY
+About
+Press
+Work Here
+Legal
+Privacy Policy
+Terms of Service
+Contact Us
+Cookie Settings
+Cookie Policy
+STACK EXCHANGE NETWORK
+Technology
+Culture & recreation
+Life & arts
+Science
+Professional
+Business
+API
+Data
+Blog
+Facebook
+Twitter
+LinkedIn
+Instagram
+Site design / logo © 2022 Stack Exchange Inc; user contributions licensed under CC BY-SA. rev 2022.9.16.42980
+Tags
+Users
+Companies
+COLLECTIVES
+Explore Collectives
+TEAMS
+Create free Team
+How to deserialize a nested Buffer using JSON.parse
+Asked 6 years, 8 months ago
+Modified 6 years, 8 months ago
+Viewed 9k times
+
+7
+
+
+2
+I am trying to serialise and deserialise an object which contains multiple Buffers, however deserialising the resulting string from JSON.stringify() with JSON.parse() fails to correctly re-create the Buffers.
+
+var b64 = 'Jw8mm8h+agVwgI/yN1egchSax0WLWXSEVP0umVvv5zM='; 
+var buf = new Buffer(b64, 'base64');
+
+var source = {
+    a: {
+        buffer: buf
+    }
+};
+
+var stringify = JSON.stringify(source);
+var parse = JSON.parse(stringify);
+
+console.log("source: "+source.a.buffer.constructor.name);
+console.log("parse: "+parse.a.buffer.constructor.name);
+Gives the ouput:
+
+source: Buffer
+parse: Object
+This makes sense since the output from Buffer.toJSON() creates a simple object like so:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+I guess I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution using JSON.parse() that I am missing.
+
+javascriptjsonnode.js
+Share
+Edit
+Follow
+Flag
+edited Jan 5, 2016 at 16:02
+asked Jan 1, 2016 at 16:34
+GeekyDeaks's user avatar
+GeekyDeaks
+63066 silver badges1212 bronze badges
+1
+
+No, there's nothing more elegant. The only structured data types that JSON supports are objects and arrays. JSON.parse doesn't know anything about Buffer. The Buffer.toJSON method is simply translating the buffer into something that JSON.parse can understand. – 
+Barmar
+ Jan 1, 2016 at 16:39
+2
+
+You can pass a "reviver" function to JSON.parse in order to avoid the manual traversal. When you find the buffer property, you'll take the value and manually create and return your Buffer. – 
+user1106925
+ Jan 1, 2016 at 16:40 
+
+@squint we thought the same thing, sorry if I "stole" your answer :-) – 
+robertklep
+ Jan 1, 2016 at 16:48
+
+@robertklep: Nope, not at all. I'd have posted it below if I felt like it. :-) – 
+user1106925
+ Jan 1, 2016 at 16:48
+Add a comment
+Start a bounty
+2 Answers
+Sorted by:
+
+Highest score (default)
+
+23
+
+You could use a reviver function that checks if an object looks like a stringified Buffer, and create a proper instance from it:
+
+var parse = JSON.parse(stringify, (k, v) => {
+  if (
+    v !== null            &&
+    typeof v === 'object' && 
+    'type' in v           &&
+    v.type === 'Buffer'   &&
+    'data' in v           &&
+    Array.isArray(v.data)) {
+    return new Buffer(v.data);
+  }
+  return v;
+});
+Share
+Edit
+Follow
+Flag
+edited Jan 1, 2016 at 17:03
+answered Jan 1, 2016 at 16:47
+robertklep's user avatar
+robertklep
+191k3333 gold badges378378 silver badges365365 bronze badges
+
+Just curious, where are type and data coming from? – 
+user1106925
+ Jan 1, 2016 at 16:50
+
+@squint those are the properties of the object that a Buffer gets stringified to. – 
+robertklep
+ Jan 1, 2016 at 16:51
+
+I don't get those properties when I stringify a Buffer. Are you sure? – 
+user1106925
+ Jan 1, 2016 at 16:52
+
+@squint JSON.stringify(new Buffer('foo')) -> {"type":"Buffer","data":[102,111,111]} (Node v4.2.1) – 
+robertklep
+ Jan 1, 2016 at 16:53
+
+@robertklep, Just a note, this fails with null values. Since typeof null is "object". Try this with { "foo": null } and you get errors (because you can't enumerate over a null). – 
+user3117575
+ Jan 1, 2016 at 16:53 
+Add a comment  |  Show 7 more comments
+
+5
+
+Since JSON serializes Buffers to:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+You can just check the type and reinitialize a buffer:
+
+if (source.buf.type === 'Buffer') {
+  source.buf = new Buffer(source.buf.data);
+}
+Share
+Edit
+Follow
+Flag
+answered Jan 1, 2016 at 16:41
+user3117575
+1
+
+I'm sure he knows how to create a buffer. He's asking how to have it parsed to a Buffer automatically. "...I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution..." – 
+user1106925
+ Jan 1, 2016 at 16:44 
+2
+
+And he probably doesn't have the source. I really doubt he's actually doing a stringify immediately followed by a parse. – 
+user1106925
+ Jan 1, 2016 at 16:47
+
+@squint Whoops, should have read more closely. Robertklep's answer does the job then. – 
+user3117575
+ Jan 1, 2016 at 16:50
+Add a comment
+Your Answer
+
+
+Community wiki
+Not the answer you're looking for? Browse other questions tagged javascriptjsonnode.js or ask your own question.
+The Overflow Blog
+Hypergrowth headaches (Ep. 485)
+I spent two years trying to do what Backstage does for free
+Featured on Meta
+Planned maintenance scheduled for Wednesday, 21 September, 00:30-03:00 UTC...
+Recent Color Contrast Changes and Accessibility Updates
+Should I explain other people's code-only answers?
+Reviewer overboard! Or a request to improve the onboarding guidance for new...
+Hot Meta Posts
+5
+Are pastebin links acceptable in comments?
+11
+What happens to existing suggested edits when you roll past 2000 reputation?
+Related
+5015
+How do I create a GUID / UUID?
+7623
+How do JavaScript closures work?
+8444
+How do I check if an element is hidden in jQuery?
+7707
+How do I redirect to another webpage?
+5899
+What is the difference between "let" and "var"?
+6061
+How do I include a JavaScript file in another JavaScript file?
+7413
+How to check whether a string contains a substring in JavaScript?
+3146
+pretty-print JSON using JavaScript
+10940
+How can I remove a specific item from an array?
+6440
+How do I return the response from an asynchronous call?
+Hot Network Questions
+How to write a fully-expandable string slice in LaTeX3
+Why Is Capacitance Not Measured in Coulombs?
+What's the meaning of `weightLimit: Unlimited` in `BuyExecution`?
+How can I have <C-E> and <C-Y>'s normal mode functionalities also work in insert mode?
+Is mathematics politically and culturally neutral?
+Are push tokens considered PII under the GDPR or the CCPA?
+Is photon spin and polarization the same thing?
+Is it appropriate to bring a player character back after they had been "killed"?
+Was it a King or a Queen or neither?
+How do I call something trash in French?
+Compute the Fabius Function
+Remove single echo from audio signal
+What are some good blogs for Mathematical Statistics and Machine Learning?
+Why would installing a 486DX2 make the system freeze for minutes on boot?
+Why do balloons no longer have nets?
+Can you have a very cold swamp?
+Add an item to a list of piped items
+Issue with ConjugateTranspose[..]
+UK Can my company order me to join a social event?
+Travelling to Nebraska USA from the UK., I’m staying 3 weeks with a friend, my budget is super tight, will I get sent home?
+Tips on where to buy clothes for cold weather in Lille, France?
+Novel about a family with anti-aging technology, including former astronauts
+Robust way to resolve a DNS address in a script (IPv4 (A) and IPv6 (AAAA))?
+Can anyone give a valid argument against running sprinkler wire in 1/2" pvc water line?
+ Question feed
+
+STACK OVERFLOW
+Questions
+Help
+PRODUCTS
+Teams
+Advertising
+Collectives
+Talent
+COMPANY
+About
+Press
+Work Here
+Legal
+Privacy Policy
+Terms of Service
+Contact Us
+Cookie Settings
+Cookie Policy
+STACK EXCHANGE NETWORK
+Technology
+Culture & recreation
+Life & arts
+Science
+Professional
+Business
+API
+Data
+Blog
+Facebook
+Twitter
+LinkedIn
+Instagram
+Site design / logo © 2022 Stack Exchange Inc; user contributions licensed under CC BY-SA. rev 2022.9.16.42980
+Tags
+Users
+Companies
+COLLECTIVES
+Explore Collectives
+TEAMS
+Create free Team
+How to deserialize a nested Buffer using JSON.parse
+Asked 6 years, 8 months ago
+Modified 6 years, 8 months ago
+Viewed 9k times
+
+7
+
+
+2
+I am trying to serialise and deserialise an object which contains multiple Buffers, however deserialising the resulting string from JSON.stringify() with JSON.parse() fails to correctly re-create the Buffers.
+
+var b64 = 'Jw8mm8h+agVwgI/yN1egchSax0WLWXSEVP0umVvv5zM='; 
+var buf = new Buffer(b64, 'base64');
+
+var source = {
+    a: {
+        buffer: buf
+    }
+};
+
+var stringify = JSON.stringify(source);
+var parse = JSON.parse(stringify);
+
+console.log("source: "+source.a.buffer.constructor.name);
+console.log("parse: "+parse.a.buffer.constructor.name);
+Gives the ouput:
+
+source: Buffer
+parse: Object
+This makes sense since the output from Buffer.toJSON() creates a simple object like so:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+I guess I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution using JSON.parse() that I am missing.
+
+javascriptjsonnode.js
+Share
+Edit
+Follow
+Flag
+edited Jan 5, 2016 at 16:02
+asked Jan 1, 2016 at 16:34
+GeekyDeaks's user avatar
+GeekyDeaks
+63066 silver badges1212 bronze badges
+1
+
+No, there's nothing more elegant. The only structured data types that JSON supports are objects and arrays. JSON.parse doesn't know anything about Buffer. The Buffer.toJSON method is simply translating the buffer into something that JSON.parse can understand. – 
+Barmar
+ Jan 1, 2016 at 16:39
+2
+
+You can pass a "reviver" function to JSON.parse in order to avoid the manual traversal. When you find the buffer property, you'll take the value and manually create and return your Buffer. – 
+user1106925
+ Jan 1, 2016 at 16:40 
+
+@squint we thought the same thing, sorry if I "stole" your answer :-) – 
+robertklep
+ Jan 1, 2016 at 16:48
+
+@robertklep: Nope, not at all. I'd have posted it below if I felt like it. :-) – 
+user1106925
+ Jan 1, 2016 at 16:48
+Add a comment
+Start a bounty
+2 Answers
+Sorted by:
+
+Highest score (default)
+
+23
+
+You could use a reviver function that checks if an object looks like a stringified Buffer, and create a proper instance from it:
+
+var parse = JSON.parse(stringify, (k, v) => {
+  if (
+    v !== null            &&
+    typeof v === 'object' && 
+    'type' in v           &&
+    v.type === 'Buffer'   &&
+    'data' in v           &&
+    Array.isArray(v.data)) {
+    return new Buffer(v.data);
+  }
+  return v;
+});
+Share
+Edit
+Follow
+Flag
+edited Jan 1, 2016 at 17:03
+answered Jan 1, 2016 at 16:47
+robertklep's user avatar
+robertklep
+191k3333 gold badges378378 silver badges365365 bronze badges
+
+Just curious, where are type and data coming from? – 
+user1106925
+ Jan 1, 2016 at 16:50
+
+@squint those are the properties of the object that a Buffer gets stringified to. – 
+robertklep
+ Jan 1, 2016 at 16:51
+
+I don't get those properties when I stringify a Buffer. Are you sure? – 
+user1106925
+ Jan 1, 2016 at 16:52
+
+@squint JSON.stringify(new Buffer('foo')) -> {"type":"Buffer","data":[102,111,111]} (Node v4.2.1) – 
+robertklep
+ Jan 1, 2016 at 16:53
+
+@robertklep, Just a note, this fails with null values. Since typeof null is "object". Try this with { "foo": null } and you get errors (because you can't enumerate over a null). – 
+user3117575
+ Jan 1, 2016 at 16:53 
+Add a comment  |  Show 7 more comments
+
+5
+
+Since JSON serializes Buffers to:
+
+{
+  type: "Buffer",
+  data: [...]
+}
+You can just check the type and reinitialize a buffer:
+
+if (source.buf.type === 'Buffer') {
+  source.buf = new Buffer(source.buf.data);
+}
+Share
+Edit
+Follow
+Flag
+answered Jan 1, 2016 at 16:41
+user3117575
+1
+
+I'm sure he knows how to create a buffer. He's asking how to have it parsed to a Buffer automatically. "...I could traverse the resulting object looking for sub objects that have the above properties and convert them back to a Buffer, however I feel there should be a more elegant solution..." – 
+user1106925
+ Jan 1, 2016 at 16:44 
+2
+
+And he probably doesn't have the source. I really doubt he's actually doing a stringify immediately followed by a parse. – 
+user1106925
+ Jan 1, 2016 at 16:47
+
+@squint Whoops, should have read more closely. Robertklep's answer does the job then. – 
+user3117575
+ Jan 1, 2016 at 16:50
+Add a comment
+Your Answer
+
+
+Community wiki
+Not the answer you're looking for? Browse other questions tagged javascriptjsonnode.js or ask your own question.
+The Overflow Blog
+Hypergrowth headaches (Ep. 485)
+I spent two years trying to do what Backstage does for free
+Featured on Meta
+Planned maintenance scheduled for Wednesday, 21 September, 00:30-03:00 UTC...
+Recent Color Contrast Changes and Accessibility Updates
+Should I explain other people's code-only answers?
+Reviewer overboard! Or a request to improve the onboarding guidance for new...
+Hot Meta Posts
+5
+Are pastebin links acceptable in comments?
+11
+What happens to existing suggested edits when you roll past 2000 reputation?
+Related
+5015
+How do I create a GUID / UUID?
+7623
+How do JavaScript closures work?
+8444
+How do I check if an element is hidden in jQuery?
+7707
+How do I redirect to another webpage?
+5899
+What is the difference between "let" and "var"?
+6061
+How do I include a JavaScript file in another JavaScript file?
+7413
+How to check whether a string contains a substring in JavaScript?
+3146
+pretty-print JSON using JavaScript
+10940
+How can I remove a specific item from an array?
+6440
+How do I return the response from an asynchronous call?
+Hot Network Questions
+How to write a fully-expandable string slice in LaTeX3
+Why Is Capacitance Not Measured in Coulombs?
+What's the meaning of `weightLimit: Unlimited` in `BuyExecution`?
+How can I have <C-E> and <C-Y>'s normal mode functionalities also work in insert mode?
+Is mathematics politically and culturally neutral?
+Are push tokens considered PII under the GDPR or the CCPA?
+Is photon spin and polarization the same thing?
+Is it appropriate to bring a player character back after they had been "killed"?
+Was it a King or a Queen or neither?
+How do I call something trash in French?
+Compute the Fabius Function
+Remove single echo from audio signal
+What are some good blogs for Mathematical Statistics and Machine Learning?
+Why would installing a 486DX2 make the system freeze for minutes on boot?
+Why do balloons no longer have nets?
+Can you have a very cold swamp?
+Add an item to a list of piped items
+Issue with ConjugateTranspose[..]
+UK Can my company order me to join a social event?
+Travelling to Nebraska USA from the UK., I’m staying 3 weeks with a friend, my budget is super tight, will I get sent home?
+Tips on where to buy clothes for cold weather in Lille, France?
+Novel about a family with anti-aging technology, including former astronauts
+Robust way to resolve a DNS address in a script (IPv4 (A) and IPv6 (AAAA))?
+Can anyone give a valid argument against running sprinkler wire in 1/2" pvc water line?
+ Question feed
+
+STACK OVERFLOW
+Questions
+Help
+PRODUCTS
+Teams
+Advertising
+Collectives
+Talent
+COMPANY
+About
+Press
+Work Here
+Legal
+Privacy Policy
+Terms of Service
+Contact Us
+Cookie Settings
+Cookie Policy
+STACK EXCHANGE NETWORK
+Technology
+Culture & recreation
+Life & arts
+Science
+Professional
+Business
+API
+Data
+Blog
+Facebook
+Twitter
+LinkedIn
+Instagram
+Site design / logo © 2022 Stack Exchange Inc; user contributions licensed under CC BY-SA. rev 2022.9.16.42980
