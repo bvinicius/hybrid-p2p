@@ -19,7 +19,7 @@ const addr = strAddr === "localhost" ? "127.0.0.1" : strAddr;
 // SOCKET CONFIG
 const port = Number(portArg);
 if (!port || !addr) {
-  console.log("[PEER] usage: ts-node npx peer.ts <addr> <port>");
+  console.log("Usage: ts-node npx peer.ts <addr> <port>");
   exit(1);
 }
 
@@ -29,7 +29,7 @@ const socket = createSocket("udp4");
 socket.bind(port, addr);
 
 socket.on("listening", () => {
-  console.log("[PEER] listening on port", port);
+  console.log("Listening on port", port);
 });
 
 socket.on("message", (message, info) => {
@@ -51,7 +51,7 @@ socket.on("message", (message, info) => {
 
     messages[data.message](message, info);
   } catch (err) {
-    console.log("[PEER] Error receiving message: ", err);
+    console.log("Error receiving message: ", err);
   }
 });
 
@@ -109,7 +109,6 @@ async function onSearchResult(message: Buffer, info: RemoteInfo) {
   peer.filePicker = new FilePicker(data.payload);
   const answer = await peer.filePicker.showOptions();
   if (answer) {
-    console.log(answer);
     requestFile(answer.hash, answer.addr, answer.port);
   }
 
@@ -119,7 +118,8 @@ async function onSearchResult(message: Buffer, info: RemoteInfo) {
 }
 
 function onSuperPeerReceived(message: Buffer, info: RemoteInfo) {
-  console.log("PEER RECEIVED", info.port);
+  console.log("\nConnected!");
+
   const data = JSON.parse(message.toString()) as IPacketData<
     PeerMessage,
     IConnectable
@@ -139,8 +139,6 @@ function requestFile(hash: string, addr: string, port: number) {
 }
 
 function requestSuperPeer() {
-  console.log("gonna send request: requestSuperPeer");
-
   const body: IPacketData<ServerMessage, undefined> = {
     message: ServerMessage.requestSuperPeer,
   };
@@ -150,8 +148,6 @@ function requestSuperPeer() {
 }
 
 function search(fileName: string) {
-  console.log("gonna send request: search");
-
   const body: IPacketData<SuperPeerMessage, { name: string }> = {
     message: SuperPeerMessage.searchResource,
     payload: { name: fileName },
@@ -159,9 +155,6 @@ function search(fileName: string) {
 
   const serializedBody = JSON.stringify(body);
   if (!peer.superPeer) {
-    console.log(
-      `[PEER] super per was not set! You need to run <connect> first.`
-    );
     return;
   }
   socket.send(serializedBody, peer.superPeer!.port, peer.superPeer!.addr);
@@ -169,9 +162,6 @@ function search(fileName: string) {
 
 function registerFiles(folderPath: string) {
   if (!peer.superPeer) {
-    console.log(
-      `[PEER] super per was not set! You need to run <connect> first.`
-    );
     return;
   }
 
@@ -204,9 +194,11 @@ listenCommands();
 
 function question(question: string): Promise<string> {
   return new Promise((resolve) => {
-    return reader.question(question, (answer) => {
-      resolve(answer);
-    });
+    setTimeout(() => {
+      return reader.question(question, (answer) => {
+        resolve(answer);
+      });
+    }, 100);
   });
 }
 
@@ -224,15 +216,15 @@ async function listenCommands() {
 
     const [cmd, ...args] = answer.split(" ");
     const preCommands: Record<string, any> = {
-      connect: () => requestSuperPeer(),
-      search: () => search(args.join(" ")),
-      register: () => registerFiles(args[0]),
+      con: () => requestSuperPeer(),
+      s: () => search(args.join(" ")),
+      reg: () => registerFiles(args[0]),
     };
 
     if (cmd in preCommands) {
       preCommands[cmd]();
     } else {
-      console.log(`[PEER] command not found: ${answer}`);
+      console.log(`Command not found: ${answer}`);
     }
   }
 }

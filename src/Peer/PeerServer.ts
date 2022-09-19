@@ -2,6 +2,7 @@ import { readFileSync } from "fs";
 import { AddressInfo, createServer, Server, Socket } from "net";
 import { IConnectable } from "../interface/IConnectable";
 import IPacketData from "../interface/IPacketData";
+import { bufferToUInt8Array } from "../shared/BufferUtils";
 import { IResourceData } from "./Peer";
 import { PeerClientMessage } from "./PeerClient";
 
@@ -55,19 +56,21 @@ class PeerServer implements IConnectable {
     }
 
     const resource = this.registeredLocalFiles[packet.payload];
-    const resourceContent = readFileSync(
+    const resourceBuffer = readFileSync(
       `${resource.folderPath}/${resource.fileName}`
-    ).toString();
+    );
 
-    const payload: IPacketData<PeerClientMessage, IDownloadData> = {
-      message: PeerClientMessage.fileReceived,
-      payload: {
-        fileName: resource.fileName,
-        content: resourceContent,
-      },
-    };
+    this.socket?.write(resourceBuffer);
 
-    this.socket?.write(JSON.stringify(payload));
+    // const payload: IPacketData<PeerClientMessage, IDownloadData> = {
+    //   message: PeerClientMessage.fileReceived,
+    //   payload: {
+    //     fileName: resource.fileName,
+    //     content: Uint8Array.from(resourceContent),
+    //   },
+    // };
+
+    // this.socket?.write(JSON.stringify(payload));
   }
 }
 
@@ -75,7 +78,7 @@ export default PeerServer;
 
 export interface IDownloadData {
   fileName: string;
-  content: string;
+  content: Uint8Array;
 }
 
 export enum PeerServerMessae {

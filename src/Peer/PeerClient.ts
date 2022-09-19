@@ -1,8 +1,9 @@
-import { fstat, mkdirSync, rmdirSync, writeFileSync } from "fs";
+import { fstat, mkdirSync, rmdirSync, rmSync, writeFileSync } from "fs";
 import { Socket } from "net";
 import { isContext } from "vm";
 import { IConnectable } from "../interface/IConnectable";
 import IPacketData from "../interface/IPacketData";
+import { bufferToUInt8Array } from "../shared/BufferUtils";
 import { DOWNLOAD_FOLDER } from "../shared/Constants";
 import { ipPortKey } from "../SuperPeer/SuperPeer";
 import { PeerMessage } from "./PeerMessage";
@@ -22,35 +23,55 @@ class PeerClient implements IConnectable {
   }
 
   private onDataReceived(message: Buffer) {
-    const data = JSON.parse(message.toString()) as IPacketData<
-      PeerClientMessage,
-      any
-    >;
+    this.writeInFolder(
+      this.downloadsPath,
+      "vini-downloads.png",
+      Uint8Array.from(message)
+    );
 
-    const handlers = {
-      [PeerClientMessage.fileReceived]: this.onFileReceived.bind(this),
-    };
+    // const data = JSON.parse(message.toString()) as IPacketData<
+    //   PeerClientMessage,
+    //   any
+    // >;
 
-    if (!handlers[data.message]) {
-      console.log("not found...");
-      return;
-    }
+    // const handlers = {
+    //   [PeerClientMessage.fileReceived]: this.onFileReceived.bind(this),
+    // };
 
-    handlers[data.message](message);
+    // if (!handlers[data.message]) {
+    //   console.log("not found...");
+    //   return;
+    // }
+
+    // handlers[data.message](message);
   }
 
   private onFileReceived(message: Buffer) {
-    const data = JSON.parse(message.toString()) as IPacketData<
-      PeerClientMessage,
-      IDownloadData
-    >;
-    if (!data.payload) {
-      return;
-    }
+    // const data = JSON.parse(message.toString()) as IPacketData<
+    //   PeerClientMessage,
+    //   IDownloadData
+    // >;
+    // if (!data.payload) {
+    //   return;
+    // }
+    // this.writeInFolder(
+    //   this.downloadsPath,
+    //   data.payload.fileName,
+    //   Uint8Array.from(data.payload.content)
+    // );
+  }
 
-    this.createDownloadFolder();
-    const filePath = `${this.downloadsPath}/${data.payload.fileName}`;
-    writeFileSync(filePath, data.payload.content);
+  private writeInFolder(folder: string, file: string, content: Uint8Array) {
+    const filePath = `${folder}/${file}`;
+    try {
+      writeFileSync(filePath, content);
+      console.log("file written!");
+    } catch (err) {
+      console.log("creating folder first...");
+      mkdirSync(folder);
+      writeFileSync(filePath, content);
+      console.log("file written!");
+    }
   }
 
   private createDownloadFolder() {
@@ -58,7 +79,7 @@ class PeerClient implements IConnectable {
       mkdirSync(this.downloadsPath);
       console.log("created without problem.");
     } catch (err) {
-      rmdirSync(this.downloadsPath);
+      rmSync(this.downloadsPath, { recursive: true, force: true });
       mkdirSync(this.downloadsPath);
       console.log("had to delete it first.");
     }

@@ -18,7 +18,7 @@ class FilePicker {
     this.printOptions();
     return new Promise((resolve) => {
       this.reader.question(
-        "\nChoose one of the resources above, or any other number to cancel. \n",
+        "\nChoose one of the resources above, or any other number to cancel.\n\n>> ",
         (answer) => {
           const index = Number(answer) - 1;
           const resources = Object.keys(this.files);

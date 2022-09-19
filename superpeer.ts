@@ -18,7 +18,7 @@ const addr = strAddr === "localhost" ? "127.0.0.1" : strAddr;
 // SOCKET CONFIG
 const port = Number(portArg);
 if (!port || !addr) {
-  console.log("[PEER] usage: ts-node npx peer.ts <addr> <port>");
+  console.log(" usage: ts-node npx peer.ts <addr> <port>");
   exit(1);
 }
 
@@ -28,7 +28,7 @@ const socket = createSocket("udp4");
 socket.bind(port, addr);
 
 socket.on("listening", () => {
-  console.log("[PEER] listening on port", port);
+  console.log(" listening on port", port);
   handshake();
 });
 
@@ -54,7 +54,7 @@ socket.on("message", (message, info) => {
 
     messages[data.message](message, info);
   } catch (err) {
-    console.log("[PEER] Error receiving message: ", err);
+    console.log(" Error receiving message: ", err);
   }
 });
 
