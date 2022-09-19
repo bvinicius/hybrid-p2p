@@ -61,16 +61,6 @@ class PeerServer implements IConnectable {
     );
 
     this.socket?.write(resourceBuffer);
-
-    // const payload: IPacketData<PeerClientMessage, IDownloadData> = {
-    //   message: PeerClientMessage.fileReceived,
-    //   payload: {
-    //     fileName: resource.fileName,
-    //     content: Uint8Array.from(resourceContent),
-    //   },
-    // };
-
-    // this.socket?.write(JSON.stringify(payload));
   }
 }
 
