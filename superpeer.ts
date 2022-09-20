@@ -71,10 +71,12 @@ function onDeathNoteReceived(message: Buffer) {
   }
 
   const { addr, port } = data.payload;
+  console.log("Received death note of peer ", addr, port);
   if (!peer.peerSet.has(ipPortKey(addr, port))) {
     sendDeathNote(addr, port);
   }
   peer.flushPeer(addr, port);
+  console.log("DHT: ", peer.dht);
 }
 
 function onDHTReceived(message: Buffer) {
@@ -95,6 +97,7 @@ function onDHTReceived(message: Buffer) {
   if (!peer.peerSet.has(ipPortKey)) {
     sendHashesToNext(data.payload);
   }
+  // console.log("DHT: ", peer.dht);
 }
 
 function onDHTSearch(message: Buffer) {
@@ -118,6 +121,8 @@ function onDHTSearch(message: Buffer) {
   }
 
   const localDHT = peer.searchInDHT(data.payload!.name);
+
+  console.log("Received search request for ", data.payload!.name);
 
   searchOnNext(
     data.payload!.name,
@@ -188,6 +193,7 @@ function onRegisterFilesMessageReceived(message: Buffer, info: RemoteInfo) {
   }
 
   peer.addPeer(info.address, info.port);
+  console.log("Added peer: ", info.address, info.port);
   sendHashesToNext(data.payload);
 }
 

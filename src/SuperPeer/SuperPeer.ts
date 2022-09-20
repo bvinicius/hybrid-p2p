@@ -25,6 +25,7 @@ class SuperPeer extends Peer {
         [hash]: { ...data[hash] },
       });
     });
+    console.log("DHT: ", this.dht);
   }
 
   searchInDHT(name: string): Record<string, IResourceData> {
@@ -38,24 +39,6 @@ class SuperPeer extends Peer {
     });
     return filteredDHT;
   }
-
-  // setPeerTimeout(address: string, port: number) {
-  //   const key = ipPortKey(address, port);
-
-  //   if (!this.peerSet.has(key)) {
-  //     return;
-  //   }
-
-  //   const peerTimeout = this.peerTimeouts[key];
-  //   if (peerTimeout) {
-  //     clearTimeout(peerTimeout);
-  //   }
-
-  //   this.peerTimeouts[key] = setTimeout(() => {
-  //     console.log(`Peer ${address}:${port} seems dead. Cleaning the house...`);
-  //     this.flushPeer(address, port);
-  //   }, KA_TIMEOUT);
-  // }
 
   addPeer(address: string, port: number) {
     this.peerSet.add(ipPortKey(address, port));
