@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, writeFileSync } from "fs";
+import { mkdirSync, writeFileSync } from "fs";
 import { Socket } from "net";
 import { IConnectable } from "../interface/IConnectable";
 import IPacketData from "../interface/IPacketData";
@@ -19,7 +19,7 @@ class PeerClient implements IConnectable {
   }
 
   get downloadsPath(): string {
-    const folderName = ipPortKey(this.addr, this.port);
+    const folderName = ipPortKey(this.addr, this.port).replace(/\./g, '-').replace(/:/g, '_');
     return `${DOWNLOAD_FOLDER}/${folderName}`;
   }
 
