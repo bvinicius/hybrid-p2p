@@ -19,7 +19,9 @@ class PeerClient implements IConnectable {
   }
 
   get downloadsPath(): string {
-    const folderName = ipPortKey(this.addr, this.port).replace(/\./g, '-').replace(/:/g, '_');
+    const folderName = ipPortKey(this.addr, this.port)
+      .replace(/\./g, "-")
+      .replace(/:/g, "_");
     return `${DOWNLOAD_FOLDER}/${folderName}`;
   }
 
@@ -70,6 +72,7 @@ class PeerClient implements IConnectable {
     };
 
     this.socket.write(JSON.stringify(data));
+    this.socket.end();
   }
 }
 export default PeerClient;
